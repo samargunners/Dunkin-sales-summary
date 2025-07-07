@@ -10,7 +10,7 @@ IMAP_SERVER = "imap.gmail.com"
 EMAIL = "dunkinsamar@gmail.com"
 PASSWORD = "huyoqtzoaztqdgzw"
 
-SAVE_DIR = "data/raw_emails"
+SAVE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "raw_emails")
 
 def clean_filename(text):
     return "".join(c for c in text if c.isalnum() or c in (' ', '.', '_', '-')).rstrip()

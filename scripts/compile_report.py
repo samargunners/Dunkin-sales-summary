@@ -1,13 +1,10 @@
-# Update compile_reports.py to delete Excel files after compiling
-script_path = "/mnt/data/dunkin_sales_dashboard/scripts/compile_reports.py"
-
-# Updated script content with deletion of raw files
-script_content = '''import os
+import os
 import pandas as pd
 from pathlib import Path
 
-RAW_DIR = Path("data/raw_emails")
-COMPILED_DIR = Path("data/compiled")
+BASE_DIR = Path(__file__).resolve().parent.parent
+RAW_DIR = BASE_DIR / "data" / "raw_emails"
+COMPILED_DIR = BASE_DIR / "data" / "compiled"
 
 def compile_reports():
     COMPILED_DIR.mkdir(parents=True, exist_ok=True)
@@ -19,6 +16,8 @@ def compile_reports():
     subcategory_rows = []
     labor_rows = []
 
+    processed_files = []
+
     for file in RAW_DIR.glob("*.xlsx"):
         print(f"Processing: {file.name}")
         try:
@@ -27,17 +26,32 @@ def compile_reports():
             store_name = file.stem.split("_")[1]
 
             df = xl.parse(xl.sheet_names[0], header=None)
-            net_sales = df[df[0] == "Net Sales (DD+BR)"].iloc[0, 1]
-            guest_count = df[df[0] == "Guest Count"].iloc[0, 1]
-            avg_check = df[df[0] == "Avg Check - MM"].iloc[0, 1]
-            tax = df[df[0] == "PA State Tax"].iloc[0, 1]
-            gross_sales = df[df[0] == "Dunkin Gross Sales"].iloc[0, 1]
-            gift_card_sales = df[df[0] == "Gift Card Sales"].iloc[0, 1]
-            refunds = df[df[0] == "Refunds"].iloc[0, 1]
-            void_amount = df[df[0] == "Void Amount"].iloc[0, 1]
-            cash_in = df[df[0] == "Cash In"].iloc[0, 1]
-            deposits = df[df[0] == "Bank Deposits"].iloc[0, 1]
-            cash_diff = df[df[0] == "Cash Over / Short"].iloc[0, 1]
+
+            # Updated safe_get to look in column 0 for label and return value from column 1
+            def safe_get(label):
+                result = df[df[0] == label]
+                if not result.empty:
+                    return result.iloc[0, 1]
+                else:
+                    print(f"  ⚠️  '{label}' not found in {file.name}")
+                    return None
+
+            net_sales = safe_get("Net Sales (DD+BR)")
+            guest_count = safe_get("Guest Count")
+            avg_check = safe_get("Avg Check - MM")
+            tax = safe_get("PA State Tax")
+            gross_sales = safe_get("Dunkin Gross Sales")
+            gift_card_sales = safe_get("Gift Card Sales")
+            refunds = safe_get("Refunds")
+            void_amount = safe_get("Void Amount")
+            cash_in = safe_get("Cash In")
+            deposits = safe_get("Bank Deposits")
+            cash_diff = safe_get("Cash Over / Short")
+
+            # If any required value is missing, skip this file
+            if None in [net_sales, guest_count, avg_check, tax, gross_sales]:
+                print(f"  ❌ Skipping {file.name} due to missing summary fields.")
+                continue
 
             summary_rows.append({
                 "store_id": store_name,
@@ -110,24 +124,27 @@ def compile_reports():
                                 "total_pay": r["Total Pay"],
                                 "percent_labor": r["% Labor"]
                             })
+            processed_files.append(file)
         except Exception as e:
             print(f"Error processing {file.name}: {e}")
-        finally:
-            os.remove(file)  # delete Excel file after processing
-            print(f"🗑️ Deleted: {file.name}")
 
+    # Write CSVs after all files processed
     pd.DataFrame(summary_rows).to_csv(COMPILED_DIR / "sales_summary.csv", index=False)
     pd.DataFrame(order_type_rows).to_csv(COMPILED_DIR / "sales_by_order_type.csv", index=False)
     pd.DataFrame(daypart_rows).to_csv(COMPILED_DIR / "sales_by_daypart.csv", index=False)
     pd.DataFrame(subcategory_rows).to_csv(COMPILED_DIR / "sales_by_subcategory.csv", index=False)
     pd.DataFrame(labor_rows).to_csv(COMPILED_DIR / "labor_metrics.csv", index=False)
 
+    # Now delete processed files
+    for file in processed_files:
+        try:
+            os.remove(file)
+            print(f"🗑️ Deleted: {file.name}")
+        except Exception as e:
+            print(f"Could not delete {file.name}: {e}")
+
+# Add this to run when called directly
 if __name__ == "__main__":
     compile_reports()
-'''
 
-# Write updated version
-with open(script_path, "w") as f:
-    f.write(script_content)
 
-script_path
