@@ -1,8 +1,8 @@
 import sqlite3
 from pathlib import Path
 
-# Define path to SQLite DB
-db_path = Path("/mnt/data/dunkin_sales_dashboard/db/sales.db")
+# Define path to SQLite DB (Windows-friendly, relative to project)
+db_path = Path("db/sales.db")
 db_path.parent.mkdir(parents=True, exist_ok=True)
 
 # Connect and create tables
@@ -83,5 +83,3 @@ CREATE TABLE IF NOT EXISTS labor_metrics (
 # Commit and close
 conn.commit()
 conn.close()
-
-db_path

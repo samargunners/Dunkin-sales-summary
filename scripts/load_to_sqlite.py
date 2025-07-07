@@ -1,7 +1,4 @@
-# Update the load_to_sqlite.py script to delete compiled files after loading
-script_path = "/mnt/data/dunkin_sales_dashboard/scripts/load_to_sqlite.py"
-
-script_content = '''import sqlite3
+import sqlite3
 import pandas as pd
 from pathlib import Path
 import os
@@ -36,9 +33,4 @@ def load_to_sqlite():
 
 if __name__ == "__main__":
     load_to_sqlite()
-'''
 
-with open(script_path, "w") as f:
-    f.write(script_content)
-
-script_path
