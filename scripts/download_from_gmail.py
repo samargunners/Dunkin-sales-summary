@@ -1,8 +1,4 @@
-import re
-
-# Updated IMAP-based script with store name + date parsing from filename
-script_path = "/mnt/data/dunkin_sales_dashboard/scripts/download_from_gmail.py"
-script_content = '''import imaplib
+import imaplib
 import email
 from email.header import decode_header
 import os
@@ -72,9 +68,3 @@ def download_excel_attachments():
 
 if __name__ == "__main__":
     download_excel_attachments()
-'''
-
-with open(script_path, "w") as f:
-    f.write(script_content)
-
-script_path
