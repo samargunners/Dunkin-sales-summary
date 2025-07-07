@@ -34,4 +34,4 @@ if not summary.empty:
 else:
     st.write("No sales data available.")
 
-# You can add more visualizations for order type, daypart, etc.
+#  add more visualizations for order type, daypart, etc.
