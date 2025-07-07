@@ -1,0 +1,9 @@
+pandas
+openpyxl
+streamlit
+matplotlib
+seaborn
+sqlite3-binary
+google-auth
+google-auth-oauthlib
+google-api-python-client
