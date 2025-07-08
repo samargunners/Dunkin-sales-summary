@@ -1,7 +1,4 @@
-# Define path and content for main.py
-script_path = "/mnt/data/dunkin_sales_dashboard/scripts/main.py"
-
-script_content = '''import subprocess
+import subprocess
 
 def run_pipeline():
     print("📥 Downloading sales reports from Gmail...")
@@ -17,10 +14,6 @@ def run_pipeline():
 
 if __name__ == "__main__":
     run_pipeline()
-'''
 
-# Write main.py to disk
-with open(script_path, "w") as f:
-    f.write(script_content)
 
-script_path
+

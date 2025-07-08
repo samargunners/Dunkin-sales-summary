@@ -126,4 +126,13 @@ pd.DataFrame(subcategory_rows).to_csv(OUTPUT_DIR / "sales_by_subcategory.csv", i
 pd.DataFrame(labor_rows).to_csv(OUTPUT_DIR / "labor_metrics.csv", index=False)
 pd.DataFrame(tender_rows).to_csv(OUTPUT_DIR / "tender_type_metrics.csv", index=False)
 
-# Note: Daypart extraction is omitted here due to inconsistent layout in Excel
+    # Optional: Delete processed files
+    # for file in processed_files:
+    #     try:
+    #         os.remove(file)
+    #         print(f"🗑️ Deleted: {file.name}")
+    #     except Exception as e:
+    #         print(f"Could not delete {file.name}: {e}")
+
+if __name__ == "__main__":
+    compile_reports()
