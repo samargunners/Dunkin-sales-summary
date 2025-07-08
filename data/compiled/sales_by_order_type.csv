@@ -1,1 +1,58 @@
-
+store_id,date,order_type,net_sales,guests,avg_check
+Columbia,20250707,Eat In,387.27,58.0,6.68
+Columbia,20250707,Drive Thru,2150.38,276.0,7.79
+Columbia,20250707,Mobile Walk In,535.73,91.0,5.89
+Columbia,20250707,Mobile DT,829.36,120.0,6.91
+Columbia,20250707,Mobile Guest,6.48,1.0,6.48
+Columbia,20250707,Kiosk Eat In,109.98,14.0,7.86
+Columbia,20250707,Kiosk Carry Out,28.74,2.0,14.37
+Columbia,20250707,Delivery: Uber Eats,4.36,1.0,4.36
+Columbia,20250707,Delivery: Doordash,144.04,10.0,14.4
+Columbia,20250707,Total,4499.81,617.0,7.31
+E-Town,20250707,Eat In,311.7,38.0,8.2
+E-Town,20250707,Drive Thru,2349.35,267.0,8.8
+E-Town,20250707,Mobile Walk In,303.1,43.0,7.05
+E-Town,20250707,Mobile DT,1079.67,143.0,7.55
+E-Town,20250707,Mobile Guest,16.16,3.0,5.39
+E-Town,20250707,Kiosk Eat In,211.81,22.0,9.63
+E-Town,20250707,Kiosk Carry Out,16.35,2.0,8.18
+E-Town,20250707,Delivery: Uber Eats,6.73,1.0,6.73
+E-Town,20250707,Delivery: Doordash,282.64,17.0,16.63
+E-Town,20250707,Total,4502.51,536.0,8.54
+Enola,20250707,Eat In,724.61,88.0,8.23
+Enola,20250707,Drive Thru,2773.8,358.0,7.75
+Enola,20250707,Mobile Walk In,394.76,56.0,7.05
+Enola,20250707,Mobile DT,1132.1,163.0,6.95
+Enola,20250707,Mobile Guest,1.0,1.0,1.0
+Enola,20250707,Kiosk Eat In,62.48,4.0,15.62
+Enola,20250707,Delivery: Grubhub,19.31,1.0,19.31
+Enola,20250707,Delivery: Uber Eats,44.65,2.0,22.33
+Enola,20250707,Delivery: Doordash,144.8,9.0,16.09
+Enola,20250707,Total,5192.51,682.0,7.77
+Lititz,20250707,Eat In,333.61,35.0,9.53
+Lititz,20250707,Drive Thru,2042.64,268.0,7.62
+Lititz,20250707,Mobile Walk In,281.35,36.0,7.82
+Lititz,20250707,Mobile DT,1096.57,134.0,8.18
+Lititz,20250707,Kiosk Eat In,96.95,12.0,8.08
+Lititz,20250707,Kiosk Carry Out,16.34,1.0,16.34
+Lititz,20250707,Delivery: Doordash,69.2,4.0,17.3
+Lititz,20250707,Total,3901.66,490.0,8.03
+Marietta,20250707,Eat In,347.06,45.0,7.71
+Marietta,20250707,Drive Thru,1859.85,249.0,7.47
+Marietta,20250707,Mobile Walk In,397.06,59.0,6.73
+Marietta,20250707,Mobile DT,736.11,111.0,6.63
+Marietta,20250707,Kiosk Eat In,64.24,10.0,6.42
+Marietta,20250707,Delivery: Uber Eats,45.35,1.0,45.35
+Marietta,20250707,Delivery: Doordash,92.91,5.0,18.58
+Marietta,20250707,Total,3542.58,480.0,7.38
+MountJoy,20250707,Eat In,219.59,29.0,7.57
+MountJoy,20250707,Drive Thru,2135.09,278.0,7.68
+MountJoy,20250707,Mobile Walk In,212.58,25.0,8.5
+MountJoy,20250707,Mobile DT,784.44,119.0,6.59
+MountJoy,20250707,Kiosk Eat In,52.57,8.0,6.57
+MountJoy,20250707,Delivery: Doordash,63.85,5.0,12.77
+MountJoy,20250707,Total,3468.12,464.0,7.47
+Paxton,20250707,Eat In,1752.47,234.0,7.49
+Paxton,20250707,Mobile Walk In,656.27,97.0,6.77
+Paxton,20250707,Delivery: Grubhub,50.64,2.0,25.32
+Paxton,20250707,Delivery: Uber Eats,58.19,3.0,19.4
