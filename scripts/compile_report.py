@@ -44,44 +44,68 @@ def extract_labor_table(section_title, text, columns):
     lines = section.splitlines()
     rows = []
     for line in lines:
-        m = re.match(
-            r"([A-Za-z\s]+)\s+([\d\.,]+)\s+([\d\.,]+)\s+([\d\.,]+)\s+\$?([\d\.,]+)\s+\$?([\d\.,]+)\s+\$?([\d\.,]+)\s+([\d\.]+%)",
-            line.strip()
-        )
-        if m:
-            row = list(m.groups())
-            for i in range(1, 7):
-                row[i] = float(row[i].replace(",", ""))
-            rows.append(dict(zip(columns, row)))
-        elif line.strip().startswith("Total"):
-            break
+        line = line.strip()
+        if not line or line.startswith("Total"):
+            continue
+        parts = re.split(r'\s{2,}', line)
+        if len(parts) == 8:
+            try:
+                row = {
+                    columns[0]: parts[0],
+                    columns[1]: float(parts[1]),
+                    columns[2]: float(parts[2]),
+                    columns[3]: float(parts[3]),
+                    columns[4]: float(parts[4].replace("$", "").replace(",", "")),
+                    columns[5]: float(parts[5].replace("$", "").replace(",", "")),
+                    columns[6]: float(parts[6].replace("$", "").replace(",", "")),
+                    columns[7]: float(parts[7].replace("%", ""))
+                }
+                rows.append(row)
+            except Exception as e:
+                print(f"⚠️ Error parsing labor row: {line} | {e}")
     return rows
 
 def extract_daypart_table(section_title, text, columns):
     section = text.split(section_title, 1)[-1]
     lines = section.splitlines()
     rows = []
-    i = 0
-    while i < len(lines) - 1:
-        label = lines[i].strip()
-        values = lines[i + 1].strip()
-        if not label or not values or label.startswith("Daypart Metrics") or label == "Total":
-            i += 1
+    for line in lines:
+        line = line.strip()
+        if re.match(r"^\$[\d\.,]+\s+[\d\.]+%\s+[\d\.,]+\s+\$[\d\.,]+$", line):
+            try:
+                parts = re.findall(r"[\d\.,]+", line)
+                row = {
+                    columns[0]: f"Daypart {len(rows)+1}",
+                    columns[1]: float(parts[0].replace(",", "")),
+                    columns[2]: float(parts[1]),
+                    columns[3]: float(parts[2].replace(",", "")),
+                    columns[4]: float(parts[3].replace(",", ""))
+                }
+                rows.append(row)
+            except Exception as e:
+                print(f"⚠️ Error parsing daypart row: {line} | {e}")
+        elif "Total" in line:
+            break
+    return rows
+
+def extract_tender_type_table(section_title, text, columns):
+    section = text.split(section_title, 1)[-1]
+    lines = section.splitlines()
+    rows = []
+    for line in lines:
+        line = line.strip()
+        if not line or "Total" in line:
             continue
-        m = re.match(r"\$?([\d\.,]+)\s+([\d\.]+%)\s+([\d\.,]+)\s+\$?([\d\.,]+)", values)
+        m = re.match(r"^\d+\s+(.+?)\s+\$([\d\.,\-]+)$", line)
         if m:
-            net_sales, percent_sales, check_count, avg_check = m.groups()
-            row = {
-                columns[0]: label,
-                columns[1]: float(net_sales.replace(",", "")),
-                columns[2]: float(percent_sales.replace("%", "")),
-                columns[3]: float(check_count.replace(",", "")),
-                columns[4]: float(avg_check.replace("$", "").replace(",", ""))
-            }
-            rows.append(row)
-            i += 2
-        else:
-            i += 1
+            tender, amount = m.groups()
+            try:
+                rows.append({
+                    columns[0]: tender.strip(),
+                    columns[1]: float(amount.replace(",", ""))
+                })
+            except Exception as e:
+                print(f"⚠️ Error parsing tender: {line} | {e}")
     return rows
 
 def compile_reports():
@@ -92,20 +116,17 @@ def compile_reports():
     daypart_rows = []
     subcategory_rows = []
     labor_rows = []
-
+    tender_type_rows = []
     processed_files = []
 
     for file in RAW_DIR.glob("*.pdf"):
-        print(f"Processing: {file.name}")
+        print(f"📄 Processing: {file.name}")
         try:
-            # --- Use pdfplumber instead of PyPDF2 ---
             with pdfplumber.open(file) as pdf:
                 text = "\n".join(
                     page.extract_text() or "" for page in pdf.pages
                 )
-            # --- End pdfplumber section ---
 
-            # Extract summary fields
             net_sales = extract_value("Net Sales (DD+BR)", text)
             guest_count = extract_value("Guest Count", text, floatify=False)
             avg_check = extract_value("Avg Check - MM", text)
@@ -120,7 +141,7 @@ def compile_reports():
             dd_sales_markup = extract_value("= DD Adjusted Reportable Sales (w/o Delivery Markup)", text)
 
             if None in [net_sales, guest_count, avg_check, tax, gross_sales]:
-                print(f"  ❌ Skipping {file.name} due to missing summary fields.")
+                print(f"❌ Skipping {file.name} due to missing summary fields.")
                 continue
 
             store_date = file.stem.split("_")[-1]
@@ -199,7 +220,17 @@ def compile_reports():
                     **r
                 })
 
+            # Tender Type Table
+            tenders = extract_tender_type_table("Tender Type", text, ["tender_type", "amount"])
+            for r in tenders:
+                tender_type_rows.append({
+                    "store_id": store_name,
+                    "date": store_date,
+                    **r
+                })
+
             processed_files.append(file)
+
         except Exception as e:
             print(f"❌ Error processing {file.name}: {e}")
 
@@ -209,16 +240,15 @@ def compile_reports():
     pd.DataFrame(daypart_rows).to_csv(COMPILED_DIR / "sales_by_daypart.csv", index=False)
     pd.DataFrame(subcategory_rows).to_csv(COMPILED_DIR / "sales_by_subcategory.csv", index=False)
     pd.DataFrame(labor_rows).to_csv(COMPILED_DIR / "labor_metrics.csv", index=False)
+    pd.DataFrame(tender_type_rows).to_csv(COMPILED_DIR / "tender_type_metrics.csv", index=False)
 
-    '''
     # Optional: Delete processed files
-    for file in processed_files:
-        try:
-            os.remove(file)
-            print(f"🗑️ Deleted: {file.name}")
-        except Exception as e:
-            print(f"Could not delete {file.name}: {e}")
-    '''
+    # for file in processed_files:
+    #     try:
+    #         os.remove(file)
+    #         print(f"🗑️ Deleted: {file.name}")
+    #     except Exception as e:
+    #         print(f"Could not delete {file.name}: {e}")
 
 if __name__ == "__main__":
     compile_reports()
