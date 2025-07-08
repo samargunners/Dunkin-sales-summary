@@ -252,3 +252,5 @@ def compile_reports():
 
 if __name__ == "__main__":
     compile_reports()
+
+# errors with - sales_w/o_markup, labor metrics, and daypart. Tender type only extracting few data. ?????
