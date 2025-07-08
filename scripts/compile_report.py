@@ -98,10 +98,12 @@ def compile_reports():
     for file in RAW_DIR.glob("*.pdf"):
         print(f"Processing: {file.name}")
         try:
+            # --- Use pdfplumber instead of PyPDF2 ---
             with pdfplumber.open(file) as pdf:
                 text = "\n".join(
-                    page.extract_text() for page in pdf.pages if page.extract_text()
+                    page.extract_text() or "" for page in pdf.pages
                 )
+            # --- End pdfplumber section ---
 
             # Extract summary fields
             net_sales = extract_value("Net Sales (DD+BR)", text)
