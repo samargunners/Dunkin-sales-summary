@@ -8,9 +8,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 RAW_DIR = BASE_DIR / "data" / "raw_emails"
 COMPILED_DIR = BASE_DIR / "data" / "compiled"
 
-def extract_value(label, text, after_label=True, default=None, floatify=True):
-    """Extracts a value after a label in the text block."""
-    pattern = rf"{re.escape(label)}\s*([-\$\d\.,]+)"
+def extract_value(label, text, default=None, floatify=True):
+    pattern = rf"{re.escape(label)}\s*\$?([-\d\.,]+)"
     match = re.search(pattern, text)
     if match:
         val = match.group(1).replace("$", "").replace(",", "")
@@ -21,12 +20,11 @@ def extract_value(label, text, after_label=True, default=None, floatify=True):
     return default
 
 def extract_table(section_title, text, columns, row_pattern, col_types=None):
-    """Extracts a table from a section in the text."""
     section = text.split(section_title, 1)[-1]
     lines = section.splitlines()
     rows = []
     for line in lines:
-        m = re.match(row_pattern, line)
+        m = re.match(row_pattern, line.strip())
         if m:
             row = list(m.groups())
             if col_types:
@@ -34,41 +32,32 @@ def extract_table(section_title, text, columns, row_pattern, col_types=None):
                     if typ == "float":
                         try:
                             row[i] = float(row[i].replace("$", "").replace(",", ""))
-                        except Exception:
+                        except:
                             row[i] = None
             rows.append(dict(zip(columns, row)))
-        elif line.strip() == "" or line.startswith("Total"):
+        elif not line.strip() or line.startswith("Total"):
             break
     return rows
 
 def extract_labor_table(section_title, text, columns):
-    """Extracts labor table where label and values are on separate lines."""
     section = text.split(section_title, 1)[-1]
     lines = section.splitlines()
     rows = []
-    i = 0
-    while i < len(lines) - 1:
-        label = lines[i].strip()
-        values = lines[i + 1].strip()
-        # Skip header lines and empty lines
-        if not label or not values or label in ("Labor Position Reg Hours OT Hours Total Hours Reg Pay OT Pay Total Pay % Labor", "Total"):
-            i += 1
-            continue
-        # Match values line
-        m = re.match(r"([\d\.,]+)\s+([\d\.,]+)\s+([\d\.,]+)\s+\$?([\d\.,]+)\s+\$?([\d\.,]+)\s+\$?([\d\.,]+)\s+([\d\.]+%)", values)
+    for line in lines:
+        m = re.match(
+            r"([A-Za-z\s]+)\s+([\d\.,]+)\s+([\d\.,]+)\s+([\d\.,]+)\s+\$?([\d\.,]+)\s+\$?([\d\.,]+)\s+\$?([\d\.,]+)\s+([\d\.]+%)",
+            line.strip()
+        )
         if m:
-            row = [label] + list(m.groups())
-            # Convert to floats where appropriate
-            for idx in range(1, 7):
-                row[idx] = float(row[idx].replace("$", "").replace(",", ""))
+            row = list(m.groups())
+            for i in range(1, 7):
+                row[i] = float(row[i].replace(",", ""))
             rows.append(dict(zip(columns, row)))
-            i += 2
-        else:
-            i += 1
+        elif line.strip().startswith("Total"):
+            break
     return rows
 
 def extract_daypart_table(section_title, text, columns):
-    """Extracts daypart table where label and values are on separate lines."""
     section = text.split(section_title, 1)[-1]
     lines = section.splitlines()
     rows = []
@@ -76,19 +65,20 @@ def extract_daypart_table(section_title, text, columns):
     while i < len(lines) - 1:
         label = lines[i].strip()
         values = lines[i + 1].strip()
-        # Skip header lines and empty lines
-        if not label or not values or label.startswith("Daypart Metrics"):
+        if not label or not values or label.startswith("Daypart Metrics") or label == "Total":
             i += 1
             continue
-        # Match values line
         m = re.match(r"\$?([\d\.,]+)\s+([\d\.]+%)\s+([\d\.,]+)\s+\$?([\d\.,]+)", values)
         if m:
-            row = [label] + list(m.groups())
-            # Convert to floats where appropriate
-            row[1] = float(row[1].replace("$", "").replace(",", ""))
-            row[3] = float(row[3].replace(",", ""))
-            row[4] = float(row[4].replace("$", "").replace(",", ""))
-            rows.append(dict(zip(columns, row)))
+            net_sales, percent_sales, check_count, avg_check = m.groups()
+            row = {
+                columns[0]: label,
+                columns[1]: float(net_sales.replace(",", "")),
+                columns[2]: float(percent_sales.replace("%", "")),
+                columns[3]: float(check_count.replace(",", "")),
+                columns[4]: float(avg_check.replace("$", "").replace(",", ""))
+            }
+            rows.append(row)
             i += 2
         else:
             i += 1
@@ -109,7 +99,9 @@ def compile_reports():
         print(f"Processing: {file.name}")
         try:
             with pdfplumber.open(file) as pdf:
-                text = "\n".join(page.extract_text() for page in pdf.pages if page.extract_text())
+                text = "\n".join(
+                    page.extract_text() for page in pdf.pages if page.extract_text()
+                )
 
             # Extract summary fields
             net_sales = extract_value("Net Sales (DD+BR)", text)
@@ -123,14 +115,12 @@ def compile_reports():
             cash_in = extract_value("Cash In", text)
             deposits = extract_value("Bank Deposits", text)
             cash_diff = extract_value("Cash Over / Short", text)
-            dd_sales_markup = extract_value("DD Sales w/o Markup", text)
+            dd_sales_markup = extract_value("= DD Adjusted Reportable Sales (w/o Delivery Markup)", text)
 
-            # If any required value is missing, skip this file
             if None in [net_sales, guest_count, avg_check, tax, gross_sales]:
                 print(f"  ❌ Skipping {file.name} due to missing summary fields.")
                 continue
 
-            # Extract store_name and store_date from filename
             store_date = file.stem.split("_")[-1]
             store_name = file.stem.split("_")[1] if "_" in file.stem else "UNKNOWN"
 
@@ -151,9 +141,9 @@ def compile_reports():
                 "sales_w/o_markup": dd_sales_markup
             })
 
-            # Order Type Table
+            # Order Type
             order_type_pattern = r"([A-Za-z: ]+)\s+\$?([\d\.,\-]+)\s+([\d\.]+%)\s+([\d\.,]+)\s+([\d\.]+%)\s+\$?([\d\.,\-]+)"
-            order_types = extract_table("Order Type", text, 
+            order_types = extract_table("Order Type", text,
                 ["order_type", "net_sales", "percent_sales", "guests", "percent_guest", "avg_check"],
                 order_type_pattern,
                 col_types=["str", "float", "float", "float", "float", "float"]
@@ -168,7 +158,7 @@ def compile_reports():
                     "avg_check": r["avg_check"]
                 })
 
-            # Daypart Table (replace old code)
+            # Daypart Table
             dayparts = extract_daypart_table("Sales by Daypart", text,
                 ["daypart", "net_sales", "percent_sales", "check_count", "avg_check"]
             )
@@ -176,11 +166,7 @@ def compile_reports():
                 daypart_rows.append({
                     "store_id": store_name,
                     "date": store_date,
-                    "daypart": r["daypart"],
-                    "net_sales": r["net_sales"],
-                    "percent_sales": r["percent_sales"],
-                    "check_count": r["check_count"],
-                    "avg_check": r["avg_check"]
+                    **r
                 })
 
             # Subcategory Table
@@ -200,7 +186,7 @@ def compile_reports():
                     "percent_sales": r["percent_sales"]
                 })
 
-            # Labor Table (replace old code)
+            # Labor Table
             labors = extract_labor_table("Labor Metrics", text,
                 ["position", "reg_hours", "ot_hours", "total_hours", "reg_pay", "ot_pay", "total_pay", "percent_labor"]
             )
@@ -208,36 +194,29 @@ def compile_reports():
                 labor_rows.append({
                     "store_id": store_name,
                     "date": store_date,
-                    "position": r["position"],
-                    "reg_hours": r["reg_hours"],
-                    "ot_hours": r["ot_hours"],
-                    "total_hours": r["total_hours"],
-                    "reg_pay": r["reg_pay"],
-                    "ot_pay": r["ot_pay"],
-                    "total_pay": r["total_pay"],
-                    "percent_labor": r["percent_labor"]
+                    **r
                 })
 
             processed_files.append(file)
         except Exception as e:
-            print(f"Error processing {file.name}: {e}")
+            print(f"❌ Error processing {file.name}: {e}")
 
-    # Write CSVs after all files processed
+    # Export CSVs
     pd.DataFrame(summary_rows).to_csv(COMPILED_DIR / "sales_summary.csv", index=False)
     pd.DataFrame(order_type_rows).to_csv(COMPILED_DIR / "sales_by_order_type.csv", index=False)
     pd.DataFrame(daypart_rows).to_csv(COMPILED_DIR / "sales_by_daypart.csv", index=False)
     pd.DataFrame(subcategory_rows).to_csv(COMPILED_DIR / "sales_by_subcategory.csv", index=False)
     pd.DataFrame(labor_rows).to_csv(COMPILED_DIR / "labor_metrics.csv", index=False)
 
-'''# Now delete processed files
+    '''
+    # Optional: Delete processed files
     for file in processed_files:
         try:
             os.remove(file)
             print(f"🗑️ Deleted: {file.name}")
         except Exception as e:
-            print(f"Could not delete {file.name}: {e}")'''
+            print(f"Could not delete {file.name}: {e}")
+    '''
 
 if __name__ == "__main__":
     compile_reports()
-
-
