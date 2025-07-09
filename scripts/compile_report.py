@@ -39,7 +39,7 @@ for txt_file in RAW_DIR.glob("*.txt"):
         "PC Number": store_pc,
         "Gross Sales": extract_value("Dunkin Gross Sales"),
         "Net Sales": extract_value("Net Sales \\(DD\\+BR\\)"),
-        "DD Adjusted w/0 Markup": extract_value("DD Adjusted Reportable Sales"),
+        "DD Adjusted w/0 Markup": extract_value("DD Adjusted Reportable Sales \\(w/o\\ Delivery\\ Markup\\)"),
         "PA Sales Tax": extract_value("PA State Tax"),
         "DD Discount": extract_value("DD Discounts"),
         "Guest Count": extract_value("Guest Count"),
