@@ -1,12 +1,14 @@
-import pandas as pd
+# Re-import necessary modules after kernel reset
 from pathlib import Path
+import pandas as pd
+import re
 
-# --------- CONFIGURATION ---------
+# CONFIGURATION
 RAW_DIR = Path("data/raw_emails")
 OUTPUT_DIR = Path("data/compiled")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# --------- INIT OUTPUT ---------
+# INIT OUTPUT LISTS
 summaries = []
 order_type_rows = []
 daypart_rows = []
@@ -14,131 +16,148 @@ subcategory_rows = []
 labor_rows = []
 tender_rows = []
 
-# --------- LOOP THROUGH FILES ---------
-for excel_path in RAW_DIR.glob("*.xlsx"):
-    try:
-        df = pd.read_excel(excel_path, header=None)
-    except Exception as e:
-        print(f"⚠️ Could not read {excel_path.name}: {e}")
-        continue
+# Read and process .txt files
+for txt_file in RAW_DIR.glob("*.txt"):
+    with open(txt_file, encoding="utf-8") as f:
+        lines = [line.strip() for line in f if line.strip()]
 
-    store_parts = excel_path.stem.split("_")
-    store_pc = store_parts[0]
-    store_name = store_parts[1] if len(store_parts) > 1 else "UNKNOWN"
+    # Extract store info from filename
+    parts = txt_file.stem.split("_")
+    store_pc = parts[1]
+    store_name = parts[2]
 
-    # --------- SUMMARY ---------
+    # Clean and parse key-value pairs
+    text = "\n".join(lines)
+
+    def extract_value(label, default=""):
+        pattern = rf"{label}\s*\n*\$?(-?\$?\d[\d,.]*)"
+        match = re.search(pattern, text, re.IGNORECASE)
+        return match.group(1) if match else default
+
     summary = {
         "Store": store_name,
-        "PC Number": store_pc
+        "PC Number": store_pc,
+        "Gross Sales": extract_value("Dunkin Gross Sales"),
+        "Net Sales": extract_value("Net Sales \\(DD\\+BR\\)"),
+        "DD Adjusted w/0 Markup": extract_value("DD Adjusted Reportable Sales"),
+        "PA Sales Tax": extract_value("PA State Tax"),
+        "DD Discount": extract_value("DD Discounts"),
+        "Guest Count": extract_value("Guest Count"),
+        "Avg Check": extract_value("Avg Check - MM"),
+        "Gift Card Sales": extract_value("Gift Card Sales"),
+        "Void Amount": extract_value("Void Amount"),
+        "Refund": extract_value("Refunds"),
+        "Void Qty": extract_value("Void Qty"),
+        "Cash IN": extract_value("Cash In")
     }
-    summary_labels = {
-        "Dunkin Gross Sales": "Gross Sales",
-        "Net Sales (DD+BR)": "Net Sales",
-        "= DD Adjusted Reportable Sales (w/o Delivery Markup)": "DD Adjusted w/0 Markup",
-        "PA State Tax": "PA Sales Tax",
-        "DD Discount": "DD Discount",
-        "Guest Count": "Guest Count",
-        "Avg Check - MM": "Avg Check",
-        "Gift Card Sales": "Gift Card Sales",
-        "Void Amount": "Void Amount",
-        "Refunds": "Refund",
-        "Void Qty": "Void Qty",
-        "Cash In": "Cash IN"
-    }
-    for _, row in df.iterrows():
-        label = str(row[0]).strip()
-        if label in summary_labels:
-            summary[summary_labels[label]] = row[1]
     summaries.append(summary)
 
-    # --------- ORDER TYPE ---------
-    try:
-        order_start = df[df[0] == "Order Type (Menu Mix Metrics)"].index[0] + 2
-        for i in range(order_start, order_start + 20):
-            row = df.iloc[i]
-            if pd.isna(row[0]) or "Total" in str(row[0]): break
-            order_type_rows.append({
-                "Store": store_name,
-                "PC Number": store_pc,
-                "Order Type": row[0],
-                "Net Sales": row[1],
-                "% Sales": row[2],
-                "Guests": row[3]
-            })
-    except: pass
+    # Extract table from sections
+    def extract_table(start_label, num_columns):
+        table = []
+        if start_label in text:
+            start_index = lines.index(start_label)
+            headers = lines[start_index + 1:start_index + 1 + num_columns]
+            i = start_index + 1 + num_columns
+            while i < len(lines) and not lines[i].startswith("Total") and not re.match(r"[A-Za-z ]+:$", lines[i]):
+                row = lines[i:i + num_columns]
+                if len(row) == num_columns:
+                    table.append(row)
+                    i += num_columns
+                else:
+                    break
+        return table
 
-    # --------- SUBCATEGORY ---------
-    try:
-        sub_start = df[df[0] == "Sales by Subcategory"].index[0] + 2
-        for i in range(sub_start, sub_start + 40):
-            row = df.iloc[i]
-            if pd.isna(row[0]) or "Total" in str(row[0]): break
-            subcategory_rows.append({
-                "Store": store_name,
-                "PC Number": store_pc,
-                "Subcategory": row[0],
-                "Qty Sold": row[1],
-                "Net Sales": row[2]
-            })
-    except: pass
+    # Order Type
+    order_type_table = extract_table("Order Type (Menu Mix Metrics)", 6)
+    for row in order_type_table:
+        order_type_rows.append({
+            "Store": store_name,
+            "PC Number": store_pc,
+            "Order Type": row[0],
+            "Net Sales": row[1],
+            "% Sales": row[2],
+            "Guests": row[3]
+        })
 
-    # --------- LABOR METRICS ---------
-    try:
-        labor_start = df[df[0] == "Labor Metrics"].index[0] + 1
-        for i in range(labor_start, labor_start + 10):
-            row = df.iloc[i]
-            if pd.isna(row[0]) or "Total" in str(row[0]): break
-            labor_rows.append({
-                "store ": store_name,
-                "pc number": store_pc,
-                "Labor Position": row[0],
-                "Reg Hours": row[1],
-                "OT Hours": row[2],
-                "Total Hours": row[3],
-                "Reg Pay": row[4],
-                "OT Pay": row[5],
-                "Total Pay": row[6],
-                "% Labor": row[7]
-            })
-    except: pass
+    # Daypart
+    if "Sales by Daypart" in text:
+        start_idx = lines.index("Sales by Daypart") + 1
+        for i in range(start_idx, len(lines), 5):
+            row = lines[i:i + 5]
+            if len(row) == 5 and re.match(r"Daypart \d", row[0]):
+                daypart_rows.append({
+                    "Store ": store_name,
+                    "PC Number": store_pc,
+                    "Daypart": row[0],
+                    "metrics": row[1],
+                    "netsales": row[2],
+                    "% Sales": row[3],
+                    "Check Count": row[4]
+                })
+            else:
+                break
 
-    # --------- TENDER TYPE ---------
-    try:
-        tender_start = df[df[0] == "Tender Type"].index[0] + 2
-        for i in range(tender_start, tender_start + 25):
-            row = df.iloc[i]
-            if pd.isna(row[0]) or "Total" in str(row[0]): break
-            tender_rows.append({
-                "Store": store_name,
-                "PC number": store_pc,
-                "Metrics": row[1],
-                "Detail Amount": row[2]
-            })
-    except: pass
+    # Subcategory
+    if "Sales by Subcategory" in text:
+        start_idx = lines.index("Sales by Subcategory") + 1
+        for i in range(start_idx, len(lines), 4):
+            row = lines[i:i + 4]
+            if len(row) == 4 and row[0] not in ["Total"]:
+                subcategory_rows.append({
+                    "Store": store_name,
+                    "PC Number": store_pc,
+                    "Subcategory": row[0],
+                    "Qty Sold": row[1],
+                    "Net Sales": row[2]
+                })
+            else:
+                break
 
-    # --------- DAYPART ---------
-    try:
-        daypart_start = df[df[0] == "Sales by Daypart"].index[0] + 2
-        for i in range(daypart_start, daypart_start + 20):
-            row = df.iloc[i]
-            if pd.isna(row[0]) or "Total" in str(row[0]): break
-            daypart_rows.append({
-                "Store ": store_name,
-                "PC Number": store_pc,
-                "Daypart": row[0],
-                "metrics": row[1],
-                "netsales": row[2],
-                "% Sales": row[3],
-                "Check Count": row[4],
-                "Avg Check ": row[5]
-            })
-    except: pass
+    # Labor
+    if "Labor Metrics" in text:
+        start_idx = lines.index("Labor Metrics") + 1
+        for i in range(start_idx, len(lines), 8):
+            row = lines[i:i + 8]
+            if len(row) == 8 and row[0] != "Total":
+                labor_rows.append({
+                    "store ": store_name,
+                    "pc number": store_pc,
+                    "Labor Position": row[0],
+                    "Reg Hours": row[1],
+                    "OT Hours": row[2],
+                    "Total Hours": row[3],
+                    "Reg Pay": row[4],
+                    "OT Pay": row[5],
+                    "Total Pay": row[6],
+                    "% Labor": row[7]
+                })
+            else:
+                break
 
-# --------- EXPORT TO XLSX ---------
-with pd.ExcelWriter(OUTPUT_DIR / "compiled_outputs.xlsx") as writer:
+    # Tender Type
+    if "Tender Type" in text:
+        start_idx = lines.index("Tender Type") + 1
+        for i in range(start_idx, len(lines), 4):
+            row = lines[i:i + 4]
+            if len(row) == 4 and row[0] not in ["Total"]:
+                tender_rows.append({
+                    "Store": store_name,
+                    "PC number": store_pc,
+                    "Metrics": row[2],
+                    "Detail Amount": row[3]
+                })
+            else:
+                break
+
+# EXPORT TO EXCEL
+output_file = OUTPUT_DIR / "compiled_outputs.xlsx"
+with pd.ExcelWriter(output_file) as writer:
     pd.DataFrame(summaries).to_excel(writer, sheet_name="sales_summary", index=False)
     pd.DataFrame(order_type_rows).to_excel(writer, sheet_name="sales_by_order_type", index=False)
     pd.DataFrame(subcategory_rows).to_excel(writer, sheet_name="sales_by_subcategory", index=False)
     pd.DataFrame(labor_rows).to_excel(writer, sheet_name="labor_metrics", index=False)
     pd.DataFrame(tender_rows).to_excel(writer, sheet_name="tender_type_metrics", index=False)
     pd.DataFrame(daypart_rows).to_excel(writer, sheet_name="sales_by_daypart", index=False)
+
+output_file.name
