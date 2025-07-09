@@ -12,20 +12,24 @@ PASSWORD = "huyoqtzoaztqdgzw"
 
 SAVE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "raw_emails")
 
+
 def clean_filename(text):
     return "".join(c for c in text if c.isalnum() or c in (' ', '.', '_', '-')).rstrip()
 
-def extract_store_name(filename):
-    match = re.match(r"(.*?) (.*?) daily sales summary", filename, re.IGNORECASE)
+
+def extract_store_name(subject):
+    match = re.match(r"(\d{6})\s+(.*?)\s+daily sales summary", subject, re.IGNORECASE)
     if match:
         pc, store_name = match.groups()
-        return store_name.replace(" ", "_")
-    return "unknown_store"
+        return pc, store_name.replace(" ", "_")
+    return "000000", "unknown_store"
 
-def download_excel_attachments():
+
+def download_email_bodies():
     os.makedirs(SAVE_DIR, exist_ok=True)
 
     today = datetime.datetime.now().strftime("%d-%b-%Y")
+    date_str = datetime.datetime.now().strftime("%Y%m%d")
 
     mail = imaplib.IMAP4_SSL(IMAP_SERVER)
     mail.login(EMAIL, PASSWORD)
@@ -44,27 +48,24 @@ def download_excel_attachments():
 
         raw_email = msg_data[0][1]
         msg = email.message_from_bytes(raw_email)
+        subject = decode_header(msg["Subject"])[0][0]
+        if isinstance(subject, bytes):
+            subject = subject.decode()
+        subject = clean_filename(subject)
+        pc_number, store_name = extract_store_name(subject)
 
         for part in msg.walk():
-            if part.get_content_maintype() == "multipart":
-                continue
-            if part.get("Content-Disposition") is None:
-                continue
-            filename = part.get_filename()
-            if filename and filename.endswith(".xlsx"):
-                decoded_header = decode_header(filename)[0][0]
-                if isinstance(decoded_header, bytes):
-                    filename = decoded_header.decode()
-                filename = clean_filename(filename)
-                store_name = extract_store_name(filename)
-                date_str = datetime.datetime.now().strftime("%Y%m%d")
-                new_filename = f"store_{store_name}_{date_str}.xlsx"
-                filepath = os.path.join(SAVE_DIR, new_filename)
-                with open(filepath, "wb") as f:
-                    f.write(part.get_payload(decode=True))
-                print(f"Downloaded: {new_filename}")
+            if part.get_content_type() == "text/plain":
+                body = part.get_payload(decode=True).decode(errors="ignore")
+                filename = f"store_{pc_number}_{store_name}_{date_str}.txt"
+                filepath = os.path.join(SAVE_DIR, filename)
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(body)
+                print(f"Saved: {filename}")
+                break  # only save the first plain text body
 
     mail.logout()
 
+
 if __name__ == "__main__":
-    download_excel_attachments()
+    download_email_bodies()
