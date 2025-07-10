@@ -35,7 +35,8 @@ def download_email_bodies():
     os.makedirs(SAVE_DIR, exist_ok=True)
 
     today = datetime.datetime.now().strftime("%d-%b-%Y")
-    date_str = datetime.datetime.now().strftime("%Y%m%d")
+    # Use yesterday's date for the filename
+    date_for_filename = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y%m%d")
 
     mail = imaplib.IMAP4_SSL(IMAP_SERVER)
     mail.login(EMAIL, PASSWORD)
@@ -80,7 +81,8 @@ def download_email_bodies():
                 break
 
         if body:
-            filename = f"store_{pc_number}_{store_name}_{date_str}.txt"
+            # Use yesterday's date in the filename
+            filename = f"store_{pc_number}_{store_name}_{date_for_filename}.txt"
             filepath = os.path.join(SAVE_DIR, filename)
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(body)
