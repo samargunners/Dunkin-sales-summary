@@ -41,7 +41,9 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
     ws = wb.active
     rows = [row for row in ws.iter_rows(values_only=True) if any(row)]
 
-    store_pc, store_name = xlsx_file.stem.split("_")[1:3]
+    store_pc, store_name, data_date = xlsx_file.stem.split("_")[1:4]
+    # Convert data_date to datetime.date object
+    data_date_obj = datetime.strptime(data_date, "%Y%m%d").date()
 
     # --- Sales Mix Metrics ---
     idx = find_section(ws, "Sales Mix Metrics")
@@ -54,6 +56,7 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
         sales_summary.append({
             "Store": store_name,
             "PC Number": store_pc,
+            "Date": data_date_obj,
             "Gross Sales": metrics.get("Dunkin Gross Sales", ""),
             "Net Sales": metrics.get("'= DD Net Sales", ""),
             "DD Adjusted w/0 Markup": metrics.get("DD Adjusted Reportable Sales (w/o Delivery Markup)", ""),
@@ -78,8 +81,8 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
                 daypart_rows.append({
                     "Store": store_name,
                     "PC Number": store_pc,
+                    "Date": data_date_obj,
                     "Daypart": row[0],
-                    "Metrics": safe_get(row, 1),
                     "Net Sales": safe_get(row, 2),
                     "% Sales": safe_get(row, 3),
                     "Check Count": safe_get(row, 4),
@@ -96,8 +99,8 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
             tender_rows.append({
                 "Store": store_name,
                 "PC Number": store_pc,
+                "Date": data_date_obj,
                 "Tender Type": TENDER_TYPE_MAP.get(tender_key, tender_key),
-                "Metrics": safe_get(row, 2),
                 "Detail Amount": safe_get(row, 3)
             })
 
@@ -111,6 +114,7 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
                 labor_rows.append({
                     "Store": store_name,
                     "PC Number": store_pc,
+                    "Date": data_date_obj,
                     "Labor Position": row[0],
                     "Reg Hours": safe_get(row, 1),
                     "OT Hours": safe_get(row, 2),
@@ -130,6 +134,7 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
             order_type_rows.append({
                 "Store": store_name,
                 "PC Number": store_pc,
+                "Date": data_date_obj,
                 "Order Type": row[0],
                 "Net Sales": safe_get(row, 1),
                 "% Sales": safe_get(row, 2),
@@ -150,6 +155,7 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
             subcategory_rows.append({
                 "Store": store_name,
                 "PC Number": store_pc,
+                "Date": data_date_obj,
                 "Subcategory": row[0],
                 "Qty Sold": safe_get(row, 1),
                 "Net Sales": safe_get(row, 2),
