@@ -40,8 +40,8 @@ def load_to_sqlite():
 
     conn.commit()
     conn.close()
-
-    os.remove(excel_path)
+    
+    #os.remove(excel_path)
     print(f"✅ Loaded all sheets into SQLite and deleted {excel_path.name}")
 
 if __name__ == "__main__":
