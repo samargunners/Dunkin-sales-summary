@@ -54,21 +54,21 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
                 break
             metrics[str(row[0]).strip()] = safe_get(row, 1)
         sales_summary.append({
-            "Store": store_name,
-            "PC Number": store_pc,
-            "Date": data_date_obj,
-            "Gross Sales": metrics.get("Dunkin Gross Sales", ""),
-            "Net Sales": metrics.get("'= DD Net Sales", ""),
-            "DD Adjusted w/0 Markup": metrics.get("DD Adjusted Reportable Sales (w/o Delivery Markup)", ""),
-            "PA Sales Tax": metrics.get("'+ Sales Tax", ""),
-            "DD Discount": metrics.get("'- DD Discounts", ""),
-            "Guest Count": metrics.get("Guest Count", ""),
-            "Avg Check": metrics.get("Avg Check - MM", ""),
-            "Gift Card Sales": metrics.get("Gift Card Sales", ""),
-            "Void Amount": metrics.get("Void Amount", ""),
+            "store": store_name,
+            "pc_number": store_pc,
+            "date": data_date_obj,
+            "gross_sales": metrics.get("Dunkin Gross Sales", ""),
+            "net_sales": metrics.get("'= DD Net Sales", ""),
+            "dd_adjusted_no_markup": metrics.get("DD Adjusted Reportable Sales (w/o Delivery Markup)", ""),
+            "PA_Sales_Tax": metrics.get("'+ Sales Tax", ""),
+            "DD_Discount": metrics.get("'- DD Discounts", ""),
+            "Guest_Count": metrics.get("Guest Count", ""),
+            "Avg_Check": metrics.get("Avg Check - MM", ""),
+            "Gift_Card_Sales": metrics.get("Gift Card Sales", ""),
+            "Void_Amount": metrics.get("Void Amount", ""),
             "Refund": metrics.get("Refunds", ""),
-            "Void Qty": metrics.get("Void Qty", ""),
-            "Cash IN": metrics.get("Cash In", "")
+            "Void_Qty": metrics.get("Void Qty", ""),
+            "Cash_IN": metrics.get("Cash In", "")
         })
 
     # --- Sales by Daypart ---
@@ -80,13 +80,13 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
             if row[0] and isinstance(row[0], str) and row[0].startswith("Daypart"):
                 daypart_rows.append({
                     "Store": store_name,
-                    "PC Number": store_pc,
+                    "PC_Number": store_pc,
                     "Date": data_date_obj,
                     "Daypart": row[0],
-                    "Net Sales": safe_get(row, 2),
-                    "% Sales": safe_get(row, 3),
-                    "Check Count": safe_get(row, 4),
-                    "Avg Check": safe_get(row, 5)
+                    "Net_Sales": safe_get(row, 2),
+                    "percent_sales": safe_get(row,3),
+                    "Check_Count": safe_get(row, 4),
+                    "Avg_Check": safe_get(row, 5)
                 })
 
     # --- Tender Type ---
@@ -98,10 +98,10 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
             tender_key = str(row[0]).strip()
             tender_rows.append({
                 "Store": store_name,
-                "PC Number": store_pc,
+                "PC_Number": store_pc,
                 "Date": data_date_obj,
-                "Tender Type": TENDER_TYPE_MAP.get(tender_key, tender_key),
-                "Detail Amount": safe_get(row, 3)
+                "Tender_Type": TENDER_TYPE_MAP.get(tender_key, tender_key),
+                "Detail_Amount": safe_get(row, 3)
             })
 
     # --- Labor Metrics ---
@@ -113,16 +113,16 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
             if row[0] and str(row[0]).strip() != "":
                 labor_rows.append({
                     "Store": store_name,
-                    "PC Number": store_pc,
+                    "PC_Number": store_pc,
                     "Date": data_date_obj,
-                    "Labor Position": row[0],
-                    "Reg Hours": safe_get(row, 1),
-                    "OT Hours": safe_get(row, 2),
-                    "Total Hours": safe_get(row, 3),
-                    "Reg Pay": safe_get(row, 4),
-                    "OT Pay": safe_get(row, 5),
-                    "Total Pay": safe_get(row, 6),
-                    "% Labor": safe_get(row, 7)
+                    "Labor_Position": row[0],
+                    "Reg_Hours": safe_get(row, 1),
+                    "OT_Hours": safe_get(row, 2),
+                    "Total_Hours": safe_get(row, 3),
+                    "Reg_Pay": safe_get(row, 4),
+                    "OT_Pay": safe_get(row, 5),
+                    "Total_Pay": safe_get(row, 6),
+                    "percent_labor": safe_get(row, 7)
                 })
 
     # --- Order Type ---
@@ -133,14 +133,14 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
                 break
             order_type_rows.append({
                 "Store": store_name,
-                "PC Number": store_pc,
+                "PC_Number": store_pc,
                 "Date": data_date_obj,
-                "Order Type": row[0],
-                "Net Sales": safe_get(row, 1),
-                "% Sales": safe_get(row, 2),
+                "Order_Type": row[0],
+                "Net_Sales": safe_get(row, 1),
+                "percent_sales": safe_get(row, 2),
                 "Guests": safe_get(row, 3),
-                "% Guest": safe_get(row, 4),
-                "Avg Check": safe_get(row, 5)
+                "percent_guest": safe_get(row, 4),
+                "Avg_Check": safe_get(row, 5)
             })
 
     # --- Subcategory Sales ---
@@ -154,12 +154,12 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
                 break
             subcategory_rows.append({
                 "Store": store_name,
-                "PC Number": store_pc,
+                "PC_Number": store_pc,
                 "Date": data_date_obj,
                 "Subcategory": row[0],
-                "Qty Sold": safe_get(row, 1),
-                "Net Sales": safe_get(row, 2),
-                "% Sales": safe_get(row, 3)
+                "Qty_Sold": safe_get(row, 1),
+                "Net_Sales": safe_get(row, 2),
+                "percent_sales": safe_get(row, 3),
             })
 
 # --- EXPORT RESULTS ---
