@@ -1,37 +1,69 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-import matplotlib.pyplot as plt
+from pathlib import Path
 
-DB_PATH = "../db/sales.db"
+# --- CONFIGURATION ---
+DB_PATH = Path("db/sales.db")
 
-def load_data(table):
-    conn = sqlite3.connect(DB_PATH)
-    df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
-    conn.close()
-    return df
+# --- FUNCTIONS ---
+def load_data(table_name):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+        conn.close()
+        return df
+    except Exception as e:
+        st.error(f"Error loading data from {table_name}: {e}")
+        return pd.DataFrame()
 
-st.title("Dunkin Sales Dashboard")
+# --- SIDEBAR FILTERS ---
+st.sidebar.title("Filters")
+selected_table = st.sidebar.selectbox("Choose a data table", [
+    "sales_summary",
+    "sales_by_order_type",
+    "sales_by_daypart",
+    "sales_by_subcategory",
+    "labor_metrics",
+    "tender_type_metrics"
+])
 
-# Load summary data
-summary = load_data("sales_summary")
+# --- MAIN DASHBOARD ---
+st.title("📊 Sales and Operations Dashboard")
 
-st.header("Sales Summary")
-st.dataframe(summary)
+# Load the selected table
+df = load_data(selected_table)
 
-# Plot gross sales over time
-st.subheader("Gross Sales Over Time")
-if not summary.empty:
-    summary['date'] = pd.to_datetime(summary['date'], errors='coerce')
-    summary = summary.sort_values('date')
-    fig, ax = plt.subplots()
-    for store_id, group in summary.groupby('store_id'):
-        ax.plot(group['date'], group['gross_sales'], marker='o', label=store_id)
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Gross Sales")
-    ax.legend(title="Store")
-    st.pyplot(fig)
+if df.empty:
+    st.warning("No data available.")
 else:
-    st.write("No sales data available.")
+    # Optional filters by store and date
+    with st.sidebar.expander("🔍 Filter by Store and Date"):
+        store_options = sorted(df["store"].dropna().unique())
+        selected_stores = st.multiselect("Store(s)", store_options, default=store_options)
 
-#  add more visualizations for order type, daypart, etc.
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
+            min_date, max_date = df["date"].min(), df["date"].max()
+            date_range = st.date_input("Date range", (min_date, max_date))
+            if isinstance(date_range, tuple):
+                start_date, end_date = date_range
+                df = df[(df["date"] >= pd.to_datetime(start_date)) & (df["date"] <= pd.to_datetime(end_date))]
+
+        df = df[df["store"].isin(selected_stores)]
+
+    st.subheader(f"📋 Data Preview: {selected_table}")
+    st.dataframe(df, use_container_width=True)
+
+    # Summary metrics
+    st.subheader("📈 Summary Metrics")
+    num_rows = len(df)
+    num_stores = df["store"].nunique() if "store" in df.columns else "-"
+    date_span = f"{df['date'].min().date()} to {df['date'].max().date()}" if "date" in df.columns else "-"
+    st.markdown(f"**Rows:** {num_rows} | **Stores:** {num_stores} | **Date Range:** {date_span}")
+
+    # Optional: Plotting for numeric fields
+    numeric_cols = df.select_dtypes(include="number").columns.tolist()
+    if numeric_cols:
+        metric_to_plot = st.selectbox("📊 Select metric to plot", numeric_cols)
+        st.line_chart(df.groupby("date")[metric_to_plot].sum().reset_index() if "date" in df.columns else df[[metric_to_plot]])
