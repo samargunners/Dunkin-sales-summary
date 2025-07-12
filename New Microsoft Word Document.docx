@@ -1,0 +1,26 @@
+in the output file we want the tender type to be cast like this 
+
+4000059 Credit Card - Discover = Discover 
+4000061 Credit Card - Visa = Visa
+4000060 Credit Card - Mastercard = Mastercard
+4000058 Credir Card - Amex= Amex
+4000065 Gift Card Redeem = GC Redeem
+4000098 = Grub Hub
+4000106 = Uber Eats
+4000107 = Doordash
+
+and we donot see the following 
+
+no data in labour metircs 
+
+no data in sales by subcategory (there is an empty row after the title sales by subcategory)
+
+
+we want to split daypart in the similar fashion 
+daypart1(12am-5am) = Daypart 1 and 12AM - 5 AM
+daypart2(5am-10am) = Daypart 2 and 5 AM to 10 AM
+daypart3(10am-2pm) = Daypart 3 and 10 AM to 2 PM
+daypart4(2pm-5pm) = Daypart 4 and 2 PM to 5 PM
+daypart5(5pm-9pm) = Daypart 5 and 5 PM to 9 PM
+
+
