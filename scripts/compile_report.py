@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import datetime
 import pandas as pd
+import re
 from openpyxl import load_workbook
 
 # --- CONFIGURATION ---
@@ -25,6 +26,7 @@ TENDER_TYPE_MAP = {
 
 # --- UTILITIES ---
 def find_section(ws, header):
+    """Return the worksheet row index that contains `header`."""
     for i, row in enumerate(ws.iter_rows(values_only=True)):
         if row and header in str(row[0]):
             return i
@@ -39,11 +41,14 @@ def is_end_of_section(row, stop_keyword):
 # --- MAIN PROCESSING ---
 for xlsx_file in RAW_DIR.glob("*.xlsx"):
     parts = xlsx_file.stem.split("_")
-    if len(parts) != 4 or not (parts[3].isdigit() and len(parts[3]) == 8):
+    if len(parts) < 3:
         continue
 
-    store_pc, store_name, data_date = parts[1:4]
-    data_date = datetime.strptime(data_date, "%Y%m%d").date()
+    store_pc, store_name, data_date = parts[0], parts[1], parts[2]
+    try:
+        data_date = datetime.strptime(data_date, "%Y%m%d").date()
+    except ValueError:
+        data_date = None
 
     wb = load_workbook(xlsx_file, data_only=True)
     ws = wb.active
@@ -58,6 +63,7 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
             if rows[i][0]:
                 metrics[str(rows[i][0]).strip()] = safe_get(rows[i], 1)
             i += 1
+
         sales_summary.append({
             "store": store_name,
             "pc_number": store_pc,
