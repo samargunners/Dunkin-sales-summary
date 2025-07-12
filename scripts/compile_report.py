@@ -1,7 +1,7 @@
 from pathlib import Path
+from datetime import datetime
 import pandas as pd
 from openpyxl import load_workbook
-from datetime import datetime
 
 # --- CONFIGURATION ---
 RAW_DIR = Path("data/raw_emails")
@@ -38,26 +38,30 @@ def is_end_of_section(row, stop_keyword):
 
 # --- MAIN PROCESSING ---
 for xlsx_file in RAW_DIR.glob("*.xlsx"):
+    parts = xlsx_file.stem.split("_")
+    if len(parts) != 4 or not (parts[3].isdigit() and len(parts[3]) == 8):
+        continue
+
+    store_pc, store_name, data_date = parts[1:4]
+    data_date = datetime.strptime(data_date, "%Y%m%d").date()
+
     wb = load_workbook(xlsx_file, data_only=True)
     ws = wb.active
     rows = [row for row in ws.iter_rows(values_only=True) if any(row)]
-
-    store_pc, store_name, data_date = xlsx_file.stem.split("_")[1:4]
-    # Convert data_date to datetime.date object
-    data_date_obj = datetime.strptime(data_date, "%Y%m%d").date()
 
     # --- Sales Mix Metrics ---
     idx = find_section(ws, "Sales Mix Metrics")
     if idx != -1:
         metrics = {}
-        for row in rows[idx+1:]:
-            if is_end_of_section(row, "Sales by Daypart"):
-                break
-            metrics[str(row[0]).strip()] = safe_get(row, 1)
+        i = idx + 1
+        while i < len(rows) and not is_end_of_section(rows[i], "Sales by Daypart"):
+            if rows[i][0]:
+                metrics[str(rows[i][0]).strip()] = safe_get(rows[i], 1)
+            i += 1
         sales_summary.append({
             "store": store_name,
             "pc_number": store_pc,
-            "date": data_date_obj,
+            "date": data_date,
             "gross_sales": metrics.get("Dunkin Gross Sales", ""),
             "net_sales": metrics.get("'= DD Net Sales", ""),
             "dd_adjusted_no_markup": metrics.get("DD Adjusted Reportable Sales (w/o Delivery Markup)", ""),
@@ -78,14 +82,14 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
         for row in rows[idx+2:]:
             if is_end_of_section(row, "Tender Type"):
                 break
-            if row[0] and isinstance(row[0], str) and row[0].startswith("Daypart"):
+            if row[0] and not str(row[0]).strip().startswith("Daypart"):
                 daypart_rows.append({
                     "Store": store_name,
                     "PC_Number": store_pc,
-                    "Date": data_date_obj,
+                    "Date": data_date,
                     "Daypart": row[0],
                     "Net_Sales": safe_get(row, 2),
-                    "percent_sales": safe_get(row,3),
+                    "percent_sales": safe_get(row, 3),
                     "Check_Count": safe_get(row, 4),
                     "Avg_Check": safe_get(row, 5)
                 })
@@ -93,29 +97,30 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
     # --- Tender Type ---
     idx = find_section(ws, "Tender Type")
     if idx != -1:
-        for row in rows[idx:]:
+        for row in rows[idx+2:]:
             if is_end_of_section(row, "Labor Metrics"):
                 break
-            tender_key = str(row[0]).strip()
-            tender_rows.append({
-                "Store": store_name,
-                "PC_Number": store_pc,
-                "Date": data_date_obj,
-                "Tender_Type": TENDER_TYPE_MAP.get(tender_key, tender_key),
-                "Detail_Amount": safe_get(row, 3)
-            })
+            if row[0]:
+                tender_key = str(row[0]).strip()
+                tender_rows.append({
+                    "Store": store_name,
+                    "PC_Number": store_pc,
+                    "Date": data_date,
+                    "Tender_Type": TENDER_TYPE_MAP.get(tender_key, tender_key),
+                    "Detail_Amount": safe_get(row, 3)
+                })
 
     # --- Labor Metrics ---
     idx = find_section(ws, "Labor Metrics")
     if idx != -1:
-        for row in rows[idx:]:
+        for row in rows[idx+2:]:
             if row and isinstance(row[0], str) and "Order Type (" in row[0]:
                 break
-            if row[0] and str(row[0]).strip() != "":
+            if row[0]:
                 labor_rows.append({
                     "Store": store_name,
                     "PC_Number": store_pc,
-                    "Date": data_date_obj,
+                    "Date": data_date,
                     "Labor_Position": row[0],
                     "Reg_Hours": safe_get(row, 1),
                     "OT_Hours": safe_get(row, 2),
@@ -129,39 +134,40 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
     # --- Order Type ---
     idx = find_section(ws, "Order Type (Menu Mix Metrics)")
     if idx != -1:
-        for row in rows[idx:]:
+        for row in rows[idx+2:]:
             if is_end_of_section(row, "Sales by Subcategory"):
                 break
-            order_type_rows.append({
-                "Store": store_name,
-                "PC_Number": store_pc,
-                "Date": data_date_obj,
-                "Order_Type": row[0],
-                "Net_Sales": safe_get(row, 1),
-                "percent_sales": safe_get(row, 2),
-                "Guests": safe_get(row, 3),
-                "percent_guest": safe_get(row, 4),
-                "Avg_Check": safe_get(row, 5)
-            })
+            if row[0]:
+                order_type_rows.append({
+                    "Store": store_name,
+                    "PC_Number": store_pc,
+                    "Date": data_date,
+                    "Order_Type": row[0],
+                    "Net_Sales": safe_get(row, 1),
+                    "percent_sales": safe_get(row, 2),
+                    "Guests": safe_get(row, 3),
+                    "percent_guest": safe_get(row, 4),
+                    "Avg_Check": safe_get(row, 5)
+                })
 
     # --- Subcategory Sales ---
     idx = find_section(ws, "Sales by Subcategory")
     if idx != -1:
-        data_start = idx + 1
-        while data_start < len(rows) and (not rows[data_start] or not rows[data_start][0]):
-            data_start += 1
-        for row in rows[data_start+1:]:
+        i = idx + 2
+        while i < len(rows):
+            row = rows[i]
             if not row[0] or "Total" in str(row[0]):
                 break
             subcategory_rows.append({
                 "Store": store_name,
                 "PC_Number": store_pc,
-                "Date": data_date_obj,
+                "Date": data_date,
                 "Subcategory": row[0],
                 "Qty_Sold": safe_get(row, 1),
                 "Net_Sales": safe_get(row, 2),
-                "percent_sales": safe_get(row, 3),
+                "percent_sales": safe_get(row, 3)
             })
+            i += 1
 
 # --- EXPORT RESULTS ---
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
