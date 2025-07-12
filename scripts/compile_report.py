@@ -13,6 +13,7 @@ sales_summary, order_type_rows, daypart_rows = [], [], []
 subcategory_rows, labor_rows, tender_rows = [], [], []
 
 TENDER_TYPE_MAP = {
+    "4000059 Crdit Card - Discover": "Discover",
     "4000061 Credit Card - Visa": "Visa",
     "4000060 Credit Card - Mastercard": "Mastercard",
     "4000058 Credit Card - Amex": "Amex",
@@ -92,7 +93,7 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
     # --- Tender Type ---
     idx = find_section(ws, "Tender Type")
     if idx != -1:
-        for row in rows[idx+2:]:
+        for row in rows[idx:]:
             if is_end_of_section(row, "Labor Metrics"):
                 break
             tender_key = str(row[0]).strip()
@@ -128,7 +129,7 @@ for xlsx_file in RAW_DIR.glob("*.xlsx"):
     # --- Order Type ---
     idx = find_section(ws, "Order Type (Menu Mix Metrics)")
     if idx != -1:
-        for row in rows[idx+2:]:
+        for row in rows[idx:]:
             if is_end_of_section(row, "Sales by Subcategory"):
                 break
             order_type_rows.append({
