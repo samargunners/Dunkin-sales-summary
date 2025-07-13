@@ -106,23 +106,43 @@ for path in RAW_DIR.glob("store_*.xlsx"):
             })
 
     # --- TENDER TYPE ---
+    tender_map = {
+        "4000059": "Discover",
+        "4000061": "Visa",
+        "4000060": "Mastercard",
+        "4000058": "Amex",
+        "4000065": "GC Redeem",
+        "4000098": "Grub Hub",
+        "4000106": "Uber Eats",
+        "4000107": "Doordash"
+    }
+
     start = section_indices.get("Tender Type", -1) + 1
     end = section_indices.get("Labor Metrics", len(rows))
     for i in range(start, end):
         r = rows[i]
         if r and isinstance(r[0], str):
+            raw = r[0]
+            if raw.strip().upper() == "GL":
+                continue  # Skip GL row
+            code = raw.strip().split()[0]
+            desc = tender_map.get(code, code)
             tender_rows.append({
                 "Store": store, "PC_Number": pc, "Date": report_date,
-                "Tender_Type": clean_label(r[0]),
+                "Tender_Type": desc,
                 "Detail_Amount": clean_num(r[3]) if len(r) > 3 else pd.NA
             })
+
 
     # --- LABOR METRICS ---
     start = section_indices.get("Labor Metrics", -1) + 1
     end = section_indices.get("Order Type", len(rows))
     for i in range(start, end):
         r = rows[i]
-        if r and r[0] and str(r[0]).strip().lower() != "labor position":
+        if (
+            r and r[0] and isinstance(r[0], str)
+            and str(r[0]).strip().lower() not in {"labor position", "order type (menu mix metrics)"}
+        ):
             labor_rows.append({
                 "Store": store, "PC_Number": pc, "Date": report_date,
                 "Labor_Position": r[0],
