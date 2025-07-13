@@ -22,13 +22,13 @@ if df.empty:
     st.stop()
 
 # --- Aggregated Store Comparison ---
-grouped = df.groupby("Store").agg({
-    "Net_Sales": "sum",
-    "Guest_Count": "sum",
-    "Avg_Check": "mean",
-    "DD_Discount": "sum",
-    "Void_Amount": "sum",
-    "Refund": "sum"
+grouped = df.groupby("store").agg({
+    "net_sales": "sum",
+    "guest_count": "sum",
+    "avg_check": "mean",
+    "dd_discount": "sum",
+    "void_amount": "sum",
+    "refund": "sum"
 }).reset_index()
 
 # --- Charts ---

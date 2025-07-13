@@ -13,8 +13,8 @@ st.title("🍩 Dunkin' Donuts - Sales Insights")
 
 # --- SIDEBAR FILTERS ---
 conn = get_connection()
-stores = pd.read_sql("SELECT DISTINCT Store FROM sales_summary", conn)['Store'].tolist()
-dates = pd.read_sql("SELECT DISTINCT Date FROM sales_summary ORDER BY Date DESC", conn)['Date']
+stores = pd.read_sql("SELECT DISTINCT store FROM sales_summary", conn)['store'].tolist()
+dates = pd.read_sql("SELECT DISTINCT date FROM sales_summary ORDER BY Date DESC", conn)['date']
 
 with st.sidebar:
     st.header("Filters")

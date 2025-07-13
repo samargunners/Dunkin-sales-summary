@@ -8,7 +8,8 @@ import pdfkit
 EXPORTS_DIR = Path("exports")
 EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-CONFIG = pdfkit.configuration()
+CONFIG = pdfkit.configuration(wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe")
+
 
 STYLE = """
 <style>

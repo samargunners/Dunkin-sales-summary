@@ -13,7 +13,10 @@ st.title("📊 Executive Summary")
 # --- FILTER CONTEXT ---
 conn = get_connection()
 stores = st.session_state.get("selected_stores", [])
-dates = st.session_state.get("date_range", [])
+if "date_range" not in st.session_state or len(st.session_state["date_range"]) != 2:
+    st.session_state["date_range"] = [pd.to_datetime("today") - pd.Timedelta(days=7), pd.to_datetime("today")]
+
+dates = st.session_state["date_range"]
 
 query = """
 SELECT * FROM sales_summary
