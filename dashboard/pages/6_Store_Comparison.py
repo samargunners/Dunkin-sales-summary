@@ -56,7 +56,7 @@ if df.empty:
     st.stop()
 
 # Ensure all relevant columns are numeric and fill NaN with 0
-for col in ["net_sales", "guest_count", "avg_check", "dd_discount", "void_amount", "refund"]:
+for col in ["net_sales", "guest_count", "avg_check", "dd_discount", "void_amount", "refund","dd_adjusted_no_markup"]:
     df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
 # --- Aggregated Store Comparison ---
@@ -66,12 +66,13 @@ grouped = df.groupby("store").agg({
     "avg_check": "mean",
     "dd_discount": "sum",
     "void_amount": "sum",
-    "refund": "sum"
+    "refund": "sum",
+    "dd_adjusted_no_markup": "sum"
 }).reset_index()
 
 # --- Charts ---
 st.subheader("Net Sales by Store")
-fig_sales = px.bar(grouped, x="store", y="net_sales", text_auto=True)
+fig_sales = px.bar(grouped, x="store", y="dd_adjusted_no_markup", text_auto=True)
 st.plotly_chart(fig_sales, use_container_width=True)
 
 st.subheader("Guest Count by Store")
