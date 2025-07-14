@@ -12,21 +12,43 @@ st.title("📊 Executive Summary")
 
 # --- FILTER CONTEXT ---
 conn = get_connection()
-stores = st.session_state.get("selected_stores", [])
-if "date_range" not in st.session_state or len(st.session_state["date_range"]) != 2:
-    st.session_state["date_range"] = [pd.to_datetime("today") - pd.Timedelta(days=7), pd.to_datetime("today")]
 
-dates = st.session_state["date_range"]
+# Get available stores from the database
+store_list = pd.read_sql("SELECT DISTINCT Store FROM sales_summary", conn)["Store"].tolist()
+
+# Store filter
+selected_stores = st.multiselect("Select Stores", store_list, default=store_list)
+
+# Date range filter
+min_date = pd.read_sql("SELECT MIN(Date) as min_date FROM sales_summary", conn)["min_date"].iloc[0]
+max_date = pd.read_sql("SELECT MAX(Date) as max_date FROM sales_summary", conn)["max_date"].iloc[0]
+date_range = st.date_input(
+    "Select Date Range",
+    value=(pd.to_datetime(max_date) - pd.Timedelta(days=7), pd.to_datetime(max_date)),
+    min_value=pd.to_datetime(min_date),
+    max_value=pd.to_datetime(max_date)
+)
+
+# Ensure date_range is a tuple of two dates
+if isinstance(date_range, tuple) and len(date_range) == 2:
+    start_date, end_date = date_range
+else:
+    st.warning("Please select a valid date range.")
+    st.stop()
+
+if not selected_stores:
+    st.warning("Please select at least one store.")
+    st.stop()
 
 query = """
 SELECT * FROM sales_summary
 WHERE Store IN ({})
   AND Date BETWEEN ? AND ?
 """.format(
-    ",".join([f"'{store}'" for store in stores])
+    ",".join([f"'{store}'" for store in selected_stores])
 )
 
-df = pd.read_sql(query, conn, params=(str(dates[0]), str(dates[1])))
+df = pd.read_sql(query, conn, params=(str(start_date), str(end_date)))
 
 if df.empty:
     st.warning("No data found for selected filters.")
