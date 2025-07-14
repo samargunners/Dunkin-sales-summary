@@ -4,6 +4,10 @@ import streamlit as st
 import pandas as pd
 from utils.db import get_connection
 import plotly.express as px
+import base64
+from weasyprint import HTML
+import tempfile
+import os
 
 st.title("📦 Sales Mix Analysis")
 
@@ -80,3 +84,73 @@ st.plotly_chart(fig_subcat, use_container_width=True)
 st.subheader("Subcategory Share of Total Sales")
 fig_subcat_pie = px.pie(subcat_sales, names="subcategory", values="net_sales")
 st.plotly_chart(fig_subcat_pie, use_container_width=True)
+
+def export_sales_mix_to_pdf():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Save charts as images
+        order_img = os.path.join(tmpdir, "order.jpg")
+        guest_img = os.path.join(tmpdir, "guest.jpg")
+        subcat_img = os.path.join(tmpdir, "subcat.jpg")
+        subcat_pie_img = os.path.join(tmpdir, "subcat_pie.jpg")
+        fig_order.write_image(order_img, format="jpg", scale=2)
+        fig_guest.write_image(guest_img, format="jpg", scale=2)
+        fig_subcat.write_image(subcat_img, format="jpg", scale=2)
+        fig_subcat_pie.write_image(subcat_pie_img, format="jpg", scale=2)
+
+        def img_to_base64(img_path):
+            with open(img_path, "rb") as img_file:
+                return base64.b64encode(img_file.read()).decode()
+
+        order_b64 = img_to_base64(order_img)
+        guest_b64 = img_to_base64(guest_img)
+        subcat_b64 = img_to_base64(subcat_img)
+        subcat_pie_b64 = img_to_base64(subcat_pie_img)
+
+        html_content = f"""
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; }}
+                h2 {{ color: #d17a22; }}
+                table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }}
+                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: center; }}
+                th {{ background-color: #f2f2f2; }}
+                img {{ display: block; margin: 20px auto; max-width: 700px; }}
+            </style>
+        </head>
+        <body>
+            <h2>Sales Mix Analysis</h2>
+            <p><strong>Date Range:</strong> {start_date} to {end_date}</p>
+            <p><strong>Stores:</strong> {', '.join(selected_stores)}</p>
+            <h3>Net Sales by Order Type</h3>
+            <img src="data:image/jpeg;base64,{order_b64}" />
+            {order_grouped.to_html(index=False)}
+            <h3>Guest Count by Order Type</h3>
+            <img src="data:image/jpeg;base64,{guest_b64}" />
+            {guests_grouped.to_html(index=False)}
+            <h3>Sales by Product Subcategory</h3>
+            <img src="data:image/jpeg;base64,{subcat_b64}" />
+            {subcat_sales.to_html(index=False)}
+            <h3>Subcategory Share of Total Sales</h3>
+            <img src="data:image/jpeg;base64,{subcat_pie_b64}" />
+        </body>
+        </html>
+        """
+
+        pdf_path = os.path.join(tmpdir, "Sales_Mix.pdf")
+        try:
+            HTML(string=html_content).write_pdf(pdf_path)
+            with open(pdf_path, "rb") as f:
+                pdf_bytes = f.read()
+            st.download_button(
+                label="📤 Download PDF",
+                data=pdf_bytes,
+                file_name="Sales_Mix.pdf",
+                mime="application/pdf"
+            )
+        except Exception as e:
+            st.error(f"PDF export failed: {e}")
+
+if st.button("📤 Export This Page to PDF"):
+    export_sales_mix_to_pdf()

@@ -10,6 +10,7 @@ import tempfile
 import subprocess
 import base64
 import os
+from weasyprint import HTML
 
 st.title("⏰ Sales by Daypart")
 
@@ -74,18 +75,25 @@ check_count = df.groupby("daypart")["check_count"].sum().reset_index()
 fig_count = px.pie(check_count, names="daypart", values="check_count")
 st.plotly_chart(fig_count, use_container_width=True)
 
-# --- EXPORT TO PDF USING wkhtmltopdf ---
-def export_tables_to_pdf():
-    # Save charts as images
+# --- EXPORT TO PDF USING weasyprint ---
+def export_daypart_to_pdf():
     with tempfile.TemporaryDirectory() as tmpdir:
-        sales_img = os.path.join(tmpdir, "sales.png")
-        check_img = os.path.join(tmpdir, "check.png")
-        count_img = os.path.join(tmpdir, "count.png")
-        fig_sales.write_image(sales_img, format="png", scale=2)
-        fig_check.write_image(check_img, format="png", scale=2)
-        fig_count.write_image(count_img, format="png", scale=2)
+        # Save charts as images (JPEG for best compatibility)
+        sales_img = os.path.join(tmpdir, "sales.jpg")
+        check_img = os.path.join(tmpdir, "check.jpg")
+        count_img = os.path.join(tmpdir, "count.jpg")
+        fig_sales.write_image(sales_img, format="jpg", scale=2)
+        fig_check.write_image(check_img, format="jpg", scale=2)
+        fig_count.write_image(count_img, format="jpg", scale=2)
 
-        # Build HTML content with embedded images
+        def img_to_base64(img_path):
+            with open(img_path, "rb") as img_file:
+                return base64.b64encode(img_file.read()).decode()
+
+        sales_b64 = img_to_base64(sales_img)
+        check_b64 = img_to_base64(check_img)
+        count_b64 = img_to_base64(count_img)
+
         html_content = f"""
         <html>
         <head>
@@ -104,30 +112,21 @@ def export_tables_to_pdf():
             <p><strong>Date Range:</strong> {start_date} to {end_date}</p>
             <p><strong>Stores:</strong> {', '.join(selected_stores)}</p>
             <h3>Net Sales by Daypart</h3>
-            <img src="file:///{sales_img}" />
+            <img src="data:image/jpeg;base64,{sales_b64}" />
             {daypart_sales.to_html(index=False)}
             <h3>Avg Check by Daypart</h3>
-            <img src="file:///{check_img}" />
+            <img src="data:image/jpeg;base64,{check_b64}" />
             {check_avg.to_html(index=False)}
             <h3>Check Count by Daypart</h3>
-            <img src="file:///{count_img}" />
+            <img src="data:image/jpeg;base64,{count_b64}" />
             {check_count.to_html(index=False)}
         </body>
         </html>
         """
 
-        # Write HTML to a temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".html", dir=tmpdir) as html_file:
-            html_file.write(html_content.encode("utf-8"))
-            html_path = html_file.name
-
-        # Output PDF path
-        pdf_path = html_path.replace(".html", ".pdf")
-
-        # Call wkhtmltopdf
+        pdf_path = os.path.join(tmpdir, "Sales_by_Daypart.pdf")
         try:
-            subprocess.run(["wkhtmltopdf", html_path, pdf_path], check=True)
-            # Read PDF and offer download
+            HTML(string=html_content).write_pdf(pdf_path)
             with open(pdf_path, "rb") as f:
                 pdf_bytes = f.read()
             st.download_button(
@@ -140,4 +139,4 @@ def export_tables_to_pdf():
             st.error(f"PDF export failed: {e}")
 
 if st.button("📤 Export This Page to PDF"):
-    export_tables_to_pdf()
+    export_daypart_to_pdf()
