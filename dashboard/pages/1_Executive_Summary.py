@@ -7,6 +7,11 @@ from datetime import datetime
 import plotly.express as px
 from utils.exports import export_page_as_pdf
 from io import StringIO
+import tempfile
+import subprocess
+import base64
+import os
+from weasyprint import HTML
 
 st.title("📊 Executive Summary")
 
@@ -93,14 +98,67 @@ pie_fig = px.pie(df, names='store', values='net_sales', hole=0.4)
 st.plotly_chart(pie_fig, use_container_width=True)
 
 # --- EXPORT TO PDF ---
-with StringIO() as buffer:
-    buffer.write("<h2>Executive Summary</h2>")
-    buffer.write(f"<p><strong>Total Sales:</strong> ${total_sales:,.2f}</p>")
-    buffer.write(f"<p><strong>Guest Count:</strong> {int(total_guests):,}</p>")
-    buffer.write(f"<p><strong>Avg Check:</strong> ${avg_check:,.2f}</p>")
-    buffer.write(f"<p><strong>Discounts Given:</strong> ${total_discounts:,.2f}</p>")
-    buffer.write(df.to_html(index=False))
-    st.session_state["_html_export_content"] = buffer.getvalue()
+def export_exec_summary_to_pdf():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        trend_img = os.path.join(tmpdir, "trend.jpg")
+        guest_img = os.path.join(tmpdir, "guest.jpg")
+        pie_img = os.path.join(tmpdir, "pie.jpg")
+        fig.write_image(trend_img, format="jpg", scale=2)
+        guest_fig.write_image(guest_img, format="jpg", scale=2)
+        pie_fig.write_image(pie_img, format="jpg", scale=2)
+
+        def img_to_base64(img_path):
+            with open(img_path, "rb") as img_file:
+                return base64.b64encode(img_file.read()).decode()
+
+        trend_b64 = img_to_base64(trend_img)
+        guest_b64 = img_to_base64(guest_img)
+        pie_b64 = img_to_base64(pie_img)
+
+        html_content = f"""
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; }}
+                h2 {{ color: #d17a22; }}
+                table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }}
+                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: center; }}
+                th {{ background-color: #f2f2f2; }}
+                img {{ display: block; margin: 20px auto; max-width: 700px; }}
+            </style>
+        </head>
+        <body>
+            <h2>Executive Summary</h2>
+            <p><strong>Total Sales:</strong> ${total_sales:,.2f}</p>
+            <p><strong>Guest Count:</strong> {int(total_guests):,}</p>
+            <p><strong>Avg Check:</strong> ${avg_check:,.2f}</p>
+            <p><strong>Discounts Given:</strong> ${total_discounts:,.2f}</p>
+            <h3>Sales Trend by Store</h3>
+            <img src="data:image/jpeg;base64,{trend_b64}" />
+            <h3>Guest Count Distribution</h3>
+            <img src="data:image/jpeg;base64,{guest_b64}" />
+            <h3>Sales by Store</h3>
+            <img src="data:image/jpeg;base64,{pie_b64}" />
+            <h3>Raw Data</h3>
+            {df.to_html(index=False)}
+        </body>
+        </html>
+        """
+
+        pdf_path = os.path.join(tmpdir, "Executive_Summary.pdf")
+        try:
+            HTML(string=html_content).write_pdf(pdf_path)
+            with open(pdf_path, "rb") as f:
+                pdf_bytes = f.read()
+            st.download_button(
+                label="📤 Download PDF",
+                data=pdf_bytes,
+                file_name="Executive_Summary.pdf",
+                mime="application/pdf"
+            )
+        except Exception as e:
+            st.error(f"PDF export failed: {e}")
 
 if st.button("📤 Export This Page to PDF"):
-    export_page_as_pdf()
+    export_exec_summary_to_pdf()
