@@ -58,7 +58,7 @@ if df.empty:
 # --- Labor Cost KPIs ---
 total_hours = df['total_hours'].sum()
 total_pay = df['total_pay'].sum()
-avg_percent_labor = df['percent_labor'].mean()
+avg_percent_labor = df['percent_labor'].sum()
 
 c1, c2, c3 = st.columns(3)
 c1.metric("Total Labor Hours", f"{total_hours:.2f}")

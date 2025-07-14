@@ -55,6 +55,10 @@ if df.empty:
     st.warning("No sales summary data available.")
     st.stop()
 
+# Ensure all relevant columns are numeric and fill NaN with 0
+for col in ["net_sales", "guest_count", "avg_check", "dd_discount", "void_amount", "refund"]:
+    df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
 # --- Aggregated Store Comparison ---
 grouped = df.groupby("store").agg({
     "net_sales": "sum",
