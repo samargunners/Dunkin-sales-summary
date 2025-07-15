@@ -69,8 +69,8 @@ def main():
     except Exception as e:
         err_msg = traceback.format_exc()
         logging.error(err_msg)
-        send_email("❌ Dunkin ETL pipeline FAILED", f\"\"\"Error encountered:\n{err_msg}\nLog saved at: {log_file}\"\"\")
+        send_email("❌ Dunkin ETL pipeline FAILED", f(\"\"\"Error encountered:\n{err_msg}\nLog saved at: {log_file}\"\"\"))
         sys.exit(1)
 
 if __name__ == "__main__":
-    main()
+    init_main()
