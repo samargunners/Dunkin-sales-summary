@@ -24,3 +24,4 @@ daypart4(2pm-5pm) = Daypart 4 and 2 PM to 5 PM
 daypart5(5pm-9pm) = Daypart 5 and 5 PM to 9 PM
 
 
+fix  labor  and  inventory  in  par-delta  streamlit  application
