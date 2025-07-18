@@ -3,6 +3,11 @@ import subprocess, sys, logging, smtplib, ssl, traceback
 from email.message import EmailMessage
 from datetime import datetime
 from pathlib import Path
+from dotenv import load_dotenv
+import os
+
+load_dotenv(dotenv_path=BASE_DIR / '.env')
+
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 LOG_DIR  = BASE_DIR / "logs"
@@ -22,9 +27,10 @@ logging.basicConfig(
 # ------------- EMAIL CONFIG -------------
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT   = 465
-EMAIL_FROM  = "dunkinsamar@gmail.com"
-EMAIL_TO    = ["dunkinsamar@gmail.com"]
-EMAIL_PWD   = "huyoqtzoaztqdgzw"  # ⚠️ We'll move this to .env later
+EMAIL_FROM  = os.getenv("EMAIL_USER")
+EMAIL_TO    = [os.getenv("EMAIL_USER")]
+EMAIL_PWD   = os.getenv("EMAIL_PASS")
+
 
 def send_email(subject, body):
     msg = EmailMessage()
