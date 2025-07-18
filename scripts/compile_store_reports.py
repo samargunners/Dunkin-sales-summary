@@ -196,5 +196,18 @@ with pd.ExcelWriter(output_path) as xlw:
     pd.DataFrame(tender_rows).to_excel(xlw, "tender_type_metrics", index=False)
     pd.DataFrame(daypart_rows).to_excel(xlw, "sales_by_daypart", index=False)
 
+# --- CLEANUP: Delete processed files ---
+processed_files = list(RAW_DIR.glob("store_*.xlsx"))
+deleted_count = 0
+
+for file_path in processed_files:
+    try:
+        file_path.unlink()  # Delete the file
+        deleted_count += 1
+        log(f"✅ Deleted: {file_path.name}")
+    except Exception as e:
+        log(f"❌ Failed to delete {file_path.name}: {e}")
+
 print(f"✅ Compiled output written to: {output_path.resolve()}")
+print(f"🗑️  Deleted {deleted_count} processed files from {RAW_DIR}")
 print(f"📄 Log file at: {log_file.resolve()}")
