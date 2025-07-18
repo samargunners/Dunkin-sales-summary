@@ -23,8 +23,8 @@ logging.basicConfig(
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT   = 465
 EMAIL_FROM  = "dunkinsamar@gmail.com"
-EMAIL_TO    = ["dunkinsamar@gmail.com"]          # add others if needed
-EMAIL_PWD   = "huyoqtzoaztqdgzw"                 # app-specific password (keep in .env!)
+EMAIL_TO    = ["dunkinsamar@gmail.com"]
+EMAIL_PWD   = "huyoqtzoaztqdgzw"  # ⚠️ We'll move this to .env later
 
 def send_email(subject, body):
     msg = EmailMessage()
@@ -35,7 +35,6 @@ def send_email(subject, body):
         smtp.login(EMAIL_FROM, EMAIL_PWD)
         smtp.send_message(msg)
 
-# ------------- HELPER -------------
 def run(script_path):
     logging.info(f"Running {script_path.name} …")
     result = subprocess.run(
@@ -51,12 +50,11 @@ def run(script_path):
     logging.info(f"{script_path.name} finished OK.")
     logging.debug(result.stdout)
 
-# ------------- MAIN -------------
 def main():
     try:
         scripts = [
             BASE_DIR / "scripts" / "download_from_gmail.py",
-            BASE_DIR / "scripts" / "compile_report.py",
+            BASE_DIR / "scripts" / "compile_store_reports.py",
             BASE_DIR / "scripts" / "load_to_sqlite.py",
         ]
         for s in scripts:
@@ -69,8 +67,9 @@ def main():
     except Exception as e:
         err_msg = traceback.format_exc()
         logging.error(err_msg)
-        send_email("❌ Dunkin ETL pipeline FAILED", f(\"\"\"Error encountered:\n{err_msg}\nLog saved at: {log_file}\"\"\"))
+        send_email("❌ Dunkin ETL pipeline FAILED",
+                   f"Error encountered:\n{err_msg}\nLog saved at: {log_file}")
         sys.exit(1)
 
 if __name__ == "__main__":
-    init_main()
+    main()
