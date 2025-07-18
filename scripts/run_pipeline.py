@@ -6,10 +6,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 
+BASE_DIR = Path(__file__).resolve().parents[1]
+
 load_dotenv(dotenv_path=BASE_DIR / '.env')
 
 
-BASE_DIR = Path(__file__).resolve().parents[1]
 LOG_DIR  = BASE_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 log_file = LOG_DIR / f"pipeline_{datetime.now():%Y%m%d}.log"
