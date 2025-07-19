@@ -1,12 +1,14 @@
-import sqlite3
-import pandas as pd
 from pathlib import Path
-import os
 from datetime import datetime
+import pandas as pd
+import sqlite3
+import os
 
 # --- CONFIGURATION ---
-DB_PATH = Path("db/sales.db")
-COMPILED_DIR = Path("data/compiled")
+BASE_DIR = Path(__file__).resolve().parents[1]
+DB_PATH = BASE_DIR / "db" / "sales.db"
+COMPILED_DIR = BASE_DIR / "data" / "compiled"
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)  # ✅ Ensure db/ exists
 DELETE_AFTER_LOAD = False  # Set to True to delete file after successful load
 
 # Expected column schema for validation (subset check)
