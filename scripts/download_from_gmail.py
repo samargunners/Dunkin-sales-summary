@@ -45,7 +45,7 @@ def download_email_bodies():
     email_ids = data[0].split()
 
     if not email_ids:
-        print("⚠️ No matching emails found.")
+        print("No matching emails found.")
         return
 
     for e_id in email_ids:
@@ -80,12 +80,12 @@ def download_email_bodies():
                     filepath = os.path.join(SAVE_DIR, save_filename)
                     with open(filepath, "wb") as f:
                         f.write(part.get_payload(decode=True))
-                    print(f"✅ Saved attachment: {filepath}")
+                    print(f"[OK] Saved attachment: {filepath}")
                     attachment_saved = True
                     break
 
         if not attachment_saved:
-            print(f"❌ No Excel attachment found in: {subject}")
+            print(f"No Excel attachment found in: {subject}")
 
     mail.logout()
 

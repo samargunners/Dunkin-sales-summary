@@ -41,7 +41,7 @@ def clean_num(x):
 for path in RAW_DIR.glob("store_*.xlsx"):
     stem_parts = path.stem.split("_")
     if len(stem_parts) != 4 or not (stem_parts[3].isdigit() and len(stem_parts[3]) == 8):
-        log(f"⚠️ Skipping {path.name}: invalid filename format")
+        log(f"Skipping {path.name}: invalid filename format")
         continue
 
     pc, store, datestr = stem_parts[1:4]
@@ -204,10 +204,10 @@ for file_path in processed_files:
     try:
         file_path.unlink()  # Delete the file
         deleted_count += 1
-        log(f"✅ Deleted: {file_path.name}")
+        log(f"Deleted: {file_path.name}")
     except Exception as e:
-        log(f"❌ Failed to delete {file_path.name}: {e}")
+        log(f"Failed to delete {file_path.name}: {e}")
 
-print(f"✅ Compiled output written to: {output_path.resolve()}")
-print(f"🗑️  Deleted {deleted_count} processed files from {RAW_DIR}")
-print(f"📄 Log file at: {log_file.resolve()}")
+print(f"Compiled output written to: {output_path.resolve()}")
+print(f"Deleted {deleted_count} processed files from {RAW_DIR}")
+print(f"Log file at: {log_file.resolve()}")

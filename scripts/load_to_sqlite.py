@@ -44,10 +44,10 @@ def get_latest_excel_file():
 def load_to_sqlite():
     excel_path = get_latest_excel_file()
     if not excel_path:
-        print("⚠️ No compiled Excel file found.")
+        print("No compiled Excel file found.")
         return
 
-    print(f"📄 Loading from: {excel_path.name}")
+    print(f"Loading from: {excel_path.name}")
     conn = sqlite3.connect(DB_PATH)
 
     sheet_to_table = expected_columns.keys()
@@ -68,19 +68,19 @@ def load_to_sqlite():
                 missing = expected - actual
                 raise ValueError(f"Missing columns in '{sheet_name}': {missing}")
 
-            print(f"➡️ Inserting '{sheet_name}' into table '{table_name}'...")
+            print(f"Inserting '{sheet_name}' into table '{table_name}'...")
             df.to_sql(table_name, conn, if_exists="append", index=False)
 
         conn.commit()
-        print("✅ All sheets successfully loaded into SQLite.")
+        print(" All sheets successfully loaded into SQLite.")
     except Exception as e:
-        print(f"❌ Error during loading: {e}")
+        print(f"Error during loading: {e}")
     finally:
         conn.close()
 
     if DELETE_AFTER_LOAD:
         os.remove(excel_path)
-        print(f"🗑️ Deleted: {excel_path.name}")
+        print(f"Deleted: {excel_path.name}")
 
 if __name__ == "__main__":
     load_to_sqlite()
