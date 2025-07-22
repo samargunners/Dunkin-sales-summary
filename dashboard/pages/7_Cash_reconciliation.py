@@ -20,140 +20,49 @@ max_date = pd.read_sql("SELECT MAX(date) as max_date FROM sales_summary", conn)[
 min_date = pd.to_datetime(min_date).date()
 max_date = pd.to_datetime(max_date).date()
 
-# Date selection type
+# Simple date selection
 st.subheader("📅 Date Selection")
-date_selection_type = st.selectbox(
-    "Select Date Filter Type",
-    ["Date Range", "Individual Dates", "Multiple Date Ranges"]
+st.info("💡 **Tip:** Select one date for single day data, or select two dates for a date range (inclusive)")
+
+if (max_date - min_date).days >= 6:
+    default_start = max_date - pd.Timedelta(days=6)
+else:
+    default_start = min_date
+
+date_selection = st.date_input(
+    "Select Date(s)",
+    value=(default_start, max_date),
+    min_value=min_date,
+    max_value=max_date,
+    help="Select one date for single day analysis, or two dates for a range"
 )
 
-selected_dates = []
-
-if date_selection_type == "Date Range":
-    if (max_date - min_date).days >= 6:
-        default_start = max_date - pd.Timedelta(days=6)
-    else:
-        default_start = min_date
-    
-    date_range = st.date_input(
-        "Select Date Range",
-        value=(default_start, max_date),
-        min_value=min_date,
-        max_value=max_date
-    )
-    
-    if isinstance(date_range, tuple) and len(date_range) == 2:
-        start_date, end_date = date_range
-        # Generate all dates in range
-        date_range_list = pd.date_range(start=start_date, end=end_date).date.tolist()
-        selected_dates = [str(d) for d in date_range_list]
-    else:
-        st.warning("Please select a valid date range.")
-        st.stop()
-
-elif date_selection_type == "Individual Dates":
-    # Get all available dates for multiselect
-    available_dates_df = pd.read_sql("SELECT DISTINCT date FROM sales_summary ORDER BY date DESC", conn)
-    available_dates = available_dates_df["date"].tolist()
-    
-    # Default to last 7 days if available
-    if len(available_dates) >= 7:
-        default_dates = available_dates[:7]
-    else:
-        default_dates = available_dates
-    
-    selected_date_objects = st.multiselect(
-        "Select Individual Dates",
-        options=available_dates,
-        default=default_dates,
-        format_func=lambda x: pd.to_datetime(x).strftime('%Y-%m-%d (%A)')
-    )
-    
-    if not selected_date_objects:
-        st.warning("Please select at least one date.")
-        st.stop()
-    
-    selected_dates = [str(d) for d in selected_date_objects]
-
-elif date_selection_type == "Multiple Date Ranges":
-    st.write("Add multiple date ranges:")
-    
-    if 'date_ranges' not in st.session_state:
-        st.session_state.date_ranges = []
-    
-    col1, col2, col3 = st.columns([3, 3, 1])
-    
-    with col1:
-        range_start = st.date_input(
-            "Range Start",
-            value=max_date - pd.Timedelta(days=6),
-            min_value=min_date,
-            max_value=max_date,
-            key="range_start"
-        )
-    
-    with col2:
-        range_end = st.date_input(
-            "Range End",
-            value=max_date,
-            min_value=min_date,
-            max_value=max_date,
-            key="range_end"
-        )
-    
-    with col3:
-        if st.button("➕ Add Range"):
-            if range_start <= range_end:
-                st.session_state.date_ranges.append((range_start, range_end))
-                st.success("Range added!")
-            else:
-                st.error("Start date must be before end date")
-    
-    # Display current ranges
-    if st.session_state.date_ranges:
-        st.write("**Selected Date Ranges:**")
-        for i, (start, end) in enumerate(st.session_state.date_ranges):
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.write(f"{i+1}. {start} to {end}")
-            with col2:
-                if st.button("🗑️", key=f"remove_{i}"):
-                    st.session_state.date_ranges.pop(i)
-                    st.rerun()
-        
-        # Generate selected dates from all ranges
-        for start, end in st.session_state.date_ranges:
-            date_range_list = pd.date_range(start=start, end=end).date.tolist()
-            selected_dates.extend([str(d) for d in date_range_list])
-        
-        # Remove duplicates while preserving order
-        selected_dates = list(dict.fromkeys(selected_dates))
-        
-        if st.button("🗑️ Clear All Ranges"):
-            st.session_state.date_ranges = []
-            st.rerun()
-    else:
-        st.info("No date ranges selected. Please add at least one date range.")
-        st.stop()
-
-if not selected_dates:
-    st.warning("No dates selected.")
-    st.stop()
+# Handle different selection scenarios
+if isinstance(date_selection, tuple) and len(date_selection) == 2:
+    # Two dates selected - use as range
+    start_date, end_date = date_selection
+    st.success(f"📊 Analyzing date range: **{start_date}** to **{end_date}**")
+elif hasattr(date_selection, '__iter__') and len(date_selection) == 1:
+    # Single date selected
+    start_date = end_date = date_selection[0]
+    st.success(f"📊 Analyzing single date: **{start_date}**")
+else:
+    # Single date object (not in tuple/list)
+    start_date = end_date = date_selection
+    st.success(f"📊 Analyzing single date: **{start_date}**")
 
 if not selected_stores:
     st.warning("Please select at least one store.")
     st.stop()
 
-# Create query with selected dates
-date_placeholders = ",".join(["?" for _ in selected_dates])
-query = f"""
+# Simple query using BETWEEN for date range (inclusive)
+query = """
 SELECT store, date, cash_in
 FROM sales_summary
-WHERE store IN ({",".join([f"'{s}'" for s in selected_stores])}) 
-AND date IN ({date_placeholders})
-"""
+WHERE store IN ({}) AND date BETWEEN ? AND ?
+""".format(",".join([f"'{s}'" for s in selected_stores]))
 
-df = pd.read_sql(query, conn, params=selected_dates)
+df = pd.read_sql(query, conn, params=(str(start_date), str(end_date)))
 
 if df.empty:
     st.warning("No cash data found for selected filters.")
@@ -202,18 +111,10 @@ def export_cash_recon_to_pdf():
         pivot_html = pivot.reset_index().to_html(index=False)
         
         # Format date selection info for PDF
-        if date_selection_type == "Date Range":
-            date_info = f"{min(selected_dates)} to {max(selected_dates)}"
-        elif date_selection_type == "Individual Dates":
-            if len(selected_dates) <= 5:
-                date_info = ", ".join(selected_dates)
-            else:
-                date_info = f"{selected_dates[0]} to {selected_dates[-1]} ({len(selected_dates)} dates)"
-        else:  # Multiple Date Ranges
-            range_info = []
-            for start, end in st.session_state.date_ranges:
-                range_info.append(f"{start} to {end}")
-            date_info = "; ".join(range_info)
+        if start_date == end_date:
+            date_info = f"Single Date: {start_date}"
+        else:
+            date_info = f"Date Range: {start_date} to {end_date}"
 
         html_content = f"""
         <html>
@@ -230,8 +131,7 @@ def export_cash_recon_to_pdf():
         </head>
         <body>
             <h2>Cash Reconciliation</h2>
-            <p><strong>Date Selection Type:</strong> {date_selection_type}</p>
-            <p><strong>Selected Dates:</strong> {date_info}</p>
+            <p><strong>{date_info}</strong></p>
             <p><strong>Stores:</strong> {', '.join(selected_stores)}</p>
             <h3>Total Cash In: ${total_cash:,.2f}</h3>
             <h3>Average Cash In (per record): ${avg_cash:,.2f}</h3>
