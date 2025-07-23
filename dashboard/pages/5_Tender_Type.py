@@ -17,6 +17,10 @@ conn = get_connection()
 store_list = pd.read_sql("SELECT DISTINCT store FROM tender_type_metrics", conn)["store"].tolist()
 selected_stores = st.multiselect("Select Stores", store_list, default=store_list)
 
+# Simple date selection
+st.subheader("📅 Date Selection")
+st.info("💡 **Tip:** Select one date for single day data, or select two dates for a date range (inclusive)")
+
 min_date = pd.read_sql("SELECT MIN(date) as min_date FROM tender_type_metrics", conn)["min_date"].iloc[0]
 max_date = pd.read_sql("SELECT MAX(date) as max_date FROM tender_type_metrics", conn)["max_date"].iloc[0]
 min_date = pd.to_datetime(min_date).date()
@@ -27,18 +31,31 @@ if (max_date - min_date).days >= 6:
 else:
     default_start = min_date
 
-date_range = st.date_input(
-    "Select Date Range",
+date_selection = st.date_input(
+    "Select Date(s)",
     value=(default_start, max_date),
     min_value=min_date,
-    max_value=max_date
+    max_value=max_date,
+    help="Select one date for single day analysis, or two dates for a range"
 )
 
-if isinstance(date_range, tuple) and len(date_range) == 2:
-    start_date, end_date = date_range
+# Handle different selection scenarios
+if isinstance(date_selection, tuple):
+    if len(date_selection) == 2:
+        # Two dates selected - use as range
+        start_date, end_date = date_selection
+        st.success(f"📊 Analyzing date range: **{start_date}** to **{end_date}**")
+    elif len(date_selection) == 1:
+        # Single date in tuple
+        start_date = end_date = date_selection[0]
+        st.success(f"📊 Analyzing single date: **{start_date}**")
+    else:
+        st.error("Invalid date selection. Please select one or two dates.")
+        st.stop()
 else:
-    st.warning("Please select a valid date range.")
-    st.stop()
+    # Single date object (not in tuple)
+    start_date = end_date = date_selection
+    st.success(f"📊 Analyzing single date: **{start_date}**")
 
 if not selected_stores:
     st.warning("Please select at least one store.")
@@ -46,7 +63,7 @@ if not selected_stores:
 
 query = """
 SELECT * FROM tender_type_metrics
-WHERE store IN ({}) AND date BETWEEN ? AND ?
+WHERE store IN ({}) AND DATE(date) BETWEEN ? AND ?
 """.format(",".join([f"'{s}'" for s in selected_stores]))
 
 df = pd.read_sql(query, conn, params=(str(start_date), str(end_date)))

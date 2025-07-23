@@ -55,11 +55,10 @@ if not selected_stores:
     st.warning("Please select at least one store.")
     st.stop()
 
-# Simple query using BETWEEN for date range (inclusive)
 query = """
 SELECT store, date, cash_in
 FROM sales_summary
-WHERE store IN ({}) AND date BETWEEN ? AND ?
+WHERE store IN ({}) AND DATE(date) BETWEEN ? AND ?
 """.format(",".join([f"'{s}'" for s in selected_stores]))
 
 df = pd.read_sql(query, conn, params=(str(start_date), str(end_date)))
@@ -85,13 +84,34 @@ fig_store = px.bar(cash_by_store, x="store", y="cash_in", text_auto=True)
 st.plotly_chart(fig_store, use_container_width=True)
 
 st.subheader("Cash In Over Time")
-cash_by_date = df.groupby("date")["cash_in"].sum().reset_index()
-fig_date = px.line(cash_by_date, x="date", y="cash_in", markers=True)
+# Create separate trend lines for each store
+cash_by_date_store = df.groupby(["date", "store"])["cash_in"].sum().reset_index()
+fig_date = px.line(cash_by_date_store, x="date", y="cash_in", color="store", 
+                   markers=True, title="Cash In Trends by Store",
+                   labels={"cash_in": "Cash In ($)", "date": "Date", "store": "Store"})
+fig_date.update_layout(hovermode='x unified')
 st.plotly_chart(fig_date, use_container_width=True)
 
 st.subheader("Cash In Pivot Table (Date x Store)")
-pivot = df.pivot_table(index="date", columns="store", values="cash_in", aggfunc="sum", fill_value=0)
-st.dataframe(pivot.style.format("${:,.2f}"))
+st.info("📊 **Note:** This table shows ALL available data regardless of date/store filters above")
+
+# Get ALL data for pivot table (ignore filters)
+all_data_query = "SELECT store, date, cash_in FROM sales_summary"
+df_all = pd.read_sql(all_data_query, conn)
+df_all["cash_in"] = pd.to_numeric(df_all["cash_in"], errors="coerce").fillna(0)
+df_all["date"] = pd.to_datetime(df_all["date"]).dt.date
+
+# Create pivot table with all data
+pivot_all = df_all.pivot_table(index="date", columns="store", values="cash_in", aggfunc="sum", fill_value=0)
+
+# Sort by date descending to show latest dates first
+pivot_all = pivot_all.sort_index(ascending=False)
+
+# Add totals
+pivot_all.loc['Total'] = pivot_all.sum()
+pivot_all['Total'] = pivot_all.sum(axis=1)
+
+st.dataframe(pivot_all.style.format("${:,.2f}"))
 
 # --- EXPORT TO PDF ---
 def export_cash_recon_to_pdf():
@@ -108,7 +128,10 @@ def export_cash_recon_to_pdf():
         store_b64 = img_to_base64(store_img)
         date_b64 = img_to_base64(date_img)
 
-        pivot_html = pivot.reset_index().to_html(index=False)
+        # Create simplified tables for PDF
+        cash_by_date_summary = cash_by_date_store.groupby("date")["cash_in"].sum().reset_index()
+        pivot_for_pdf = pivot_all.drop('Total', axis=1).drop('Total', axis=0) if 'Total' in pivot_all.columns else pivot_all
+        pivot_html = pivot_for_pdf.reset_index().to_html(index=False)
         
         # Format date selection info for PDF
         if start_date == end_date:
@@ -138,10 +161,10 @@ def export_cash_recon_to_pdf():
             <h3>Cash In by Store</h3>
             <img src="data:image/jpeg;base64,{store_b64}" />
             {cash_by_store.to_html(index=False)}
-            <h3>Cash In Over Time</h3>
+            <h3>Cash In Over Time by Store</h3>
             <img src="data:image/jpeg;base64,{date_b64}" />
-            {cash_by_date.to_html(index=False)}
-            <h3>Cash In Pivot Table (Date x Store)</h3>
+            {cash_by_date_summary.to_html(index=False)}
+            <h3>Cash In Pivot Table (All Data)</h3>
             {pivot_html}
         </body>
         </html>
