@@ -7,6 +7,9 @@ import base64
 import os
 from weasyprint import HTML
 
+# Configure page layout
+st.set_page_config(page_title="Cash Reconciliation", layout="wide")
+
 st.title("💵 Cash Reconciliation")
 
 conn = get_connection()
