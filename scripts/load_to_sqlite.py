@@ -16,7 +16,8 @@ expected_columns = {
     "sales_summary": [
         "Store", "PC_Number", "Date", "Gross_Sales", "Net_Sales",
         "DD_Adjusted_No_Markup", "PA_Sales_Tax", "DD_Discount", "Guest_Count",
-        "Avg_Check", "Gift_Card_Sales", "Void_Amount", "Refund", "Void_Qty", "Cash_IN"
+        "Avg_Check", "Gift_Card_Sales", "Void_Amount", "Refund", "Void_Qty", 
+        "Paid_IN", "Paid_OUT", "Cash_IN"
     ],
     "sales_by_order_type": [
         "Store", "PC_Number", "Date", "Order_Type", "Net_Sales",

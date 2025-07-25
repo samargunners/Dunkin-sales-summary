@@ -30,6 +30,24 @@ def clean_num(x):
         return pd.NA
     if not isinstance(x, str):
         return pd.NA
+    # Handle "--" values by converting them to 0
+    if x.strip() == "'--":
+        return 0
+    s = re.sub(r"[^\d.\-]", "", x)
+    if not re.search(r"\d", s):
+        return pd.NA
+    try:
+        return float(s)
+    except ValueError:
+        return pd.NA
+
+def clean_num(x):
+    if isinstance(x, (int, float)):
+        return x
+    if x is None or (isinstance(x, float) and pd.isna(x)):
+        return pd.NA
+    if not isinstance(x, str):
+        return pd.NA
     s = re.sub(r"[^\d.\\-]", "", x)
     if not re.search(r"\\d", s):
         return pd.NA
@@ -76,18 +94,20 @@ for path in RAW_DIR.glob("store_*.xlsx"):
             d[key] = value
     sales_summary.append({
         "Store": store, "PC_Number": pc, "Date": report_date,
-        "Gross_Sales": d.get("Dunkin Gross Sales", pd.NA),
-        "Net_Sales": d.get("DD Net Sales", pd.NA),
-        "DD_Adjusted_No_Markup": d.get("DD Adjusted Reportable Sales (w/o Delivery Markup)", pd.NA),
-        "PA_Sales_Tax": d.get("Sales Tax", pd.NA),
-        "DD_Discount": d.get("DD Discounts", pd.NA),
-        "Guest_Count": d.get("Guest Count", pd.NA),
-        "Avg_Check": d.get("Avg Check - MM", pd.NA),
-        "Gift_Card_Sales": d.get("Gift Card Sales", pd.NA),
-        "Void_Amount": d.get("Void Amount", pd.NA),
-        "Refund": d.get("Refunds", pd.NA),
-        "Void_Qty": d.get("Void Qty", pd.NA),
-        "Cash_IN": d.get("Cash In", pd.NA)
+        "Gross_Sales": clean_num(d.get("Dunkin Gross Sales", pd.NA)),
+        "Net_Sales": clean_num(d.get("DD Net Sales", pd.NA)),
+        "DD_Adjusted_No_Markup": clean_num(d.get("DD Adjusted Reportable Sales (w/o Delivery Markup)", pd.NA)),
+        "PA_Sales_Tax": clean_num(d.get("Sales Tax", pd.NA)),
+        "DD_Discount": clean_num(d.get("DD Discounts", pd.NA)),
+        "Guest_Count": clean_num(d.get("Guest Count", pd.NA)),
+        "Avg_Check": clean_num(d.get("Avg Check - MM", pd.NA)),
+        "Gift_Card_Sales": clean_num(d.get("Gift Card Sales", pd.NA)),
+        "Void_Amount": clean_num(d.get("Void Amount", pd.NA)),
+        "Refund": clean_num(d.get("Refunds", pd.NA)),
+        "Void_Qty": clean_num(d.get("Void Qty", pd.NA)),
+        "Paid_IN": clean_num(d.get("Paid In", pd.NA)),
+        "Paid_OUT": clean_num(d.get("Paid Out", pd.NA)),
+        "Cash_IN": clean_num(d.get("Cash In", pd.NA))
     })
 
     # --- SALES BY DAYPART ---

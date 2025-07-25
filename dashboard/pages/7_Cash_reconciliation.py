@@ -56,7 +56,7 @@ if not selected_stores:
     st.stop()
 
 query = """
-SELECT store, date, cash_in
+SELECT store, date, cash_in, paid_in, paid_out
 FROM sales_summary
 WHERE store IN ({}) AND DATE(date) BETWEEN ? AND ?
 """.format(",".join([f"'{s}'" for s in selected_stores]))
@@ -68,41 +68,57 @@ if df.empty:
     st.stop()
 
 df["cash_in"] = pd.to_numeric(df["cash_in"], errors="coerce").fillna(0)
+df["paid_in"] = pd.to_numeric(df["paid_in"], errors="coerce").fillna(0)
+df["paid_out"] = pd.to_numeric(df["paid_out"], errors="coerce").fillna(0)
+
+# Calculate net cash reconciliation: Cash In + Paid In - Paid Out
+df["net_cash_recon"] = df["cash_in"] + df["paid_in"] - df["paid_out"]
 
 # --- KPIs ---
 total_cash = df["cash_in"].sum()
-avg_cash = df["cash_in"].mean()
+total_paid_in = df["paid_in"].sum()
+total_paid_out = df["paid_out"].sum()
+total_net_recon = df["net_cash_recon"].sum()
+avg_net_recon = df["net_cash_recon"].mean()
 
-c1, c2 = st.columns(2)
+c1, c2, c3, c4 = st.columns(4)
 c1.metric("Total Cash In", f"${total_cash:,.2f}")
-c2.metric("Average Cash In (per record)", f"${avg_cash:,.2f}")
+c2.metric("Total Paid In", f"${total_paid_in:,.2f}")
+c3.metric("Total Paid Out", f"${total_paid_out:,.2f}")
+c4.metric("Net Cash Reconciliation", f"${total_net_recon:,.2f}")
 
 # --- Charts ---
-st.subheader("Cash In by Store")
-cash_by_store = df.groupby("store")["cash_in"].sum().reset_index()
-fig_store = px.bar(cash_by_store, x="store", y="cash_in", text_auto=True)
+st.subheader("Net Cash Reconciliation by Store")
+st.info("💡 **Formula:** Cash In + Paid In - Paid Out")
+recon_by_store = df.groupby("store")["net_cash_recon"].sum().reset_index()
+fig_store = px.bar(recon_by_store, x="store", y="net_cash_recon", text_auto=True,
+                   labels={"net_cash_recon": "Net Cash Reconciliation ($)"})
 st.plotly_chart(fig_store, use_container_width=True)
 
-st.subheader("Cash In Over Time")
+st.subheader("Net Cash Reconciliation Over Time")
 # Create separate trend lines for each store
-cash_by_date_store = df.groupby(["date", "store"])["cash_in"].sum().reset_index()
-fig_date = px.line(cash_by_date_store, x="date", y="cash_in", color="store", 
-                   markers=True, title="Cash In Trends by Store",
-                   labels={"cash_in": "Cash In ($)", "date": "Date", "store": "Store"})
+recon_by_date_store = df.groupby(["date", "store"])["net_cash_recon"].sum().reset_index()
+fig_date = px.line(recon_by_date_store, x="date", y="net_cash_recon", color="store", 
+                   markers=True, title="Net Cash Reconciliation Trends by Store",
+                   labels={"net_cash_recon": "Net Cash Reconciliation ($)", "date": "Date", "store": "Store"})
 fig_date.update_layout(hovermode='x unified')
 st.plotly_chart(fig_date, use_container_width=True)
 
-st.subheader("Cash In Pivot Table (Date x Store)")
+st.subheader("Cash Reconciliation Pivot Table (Date x Store)")
 st.info("📊 **Note:** This table shows ALL available data regardless of date/store filters above")
+st.info("💡 **Formula:** Cash In + Paid In - Paid Out")
 
 # Get ALL data for pivot table (ignore filters)
-all_data_query = "SELECT store, date, cash_in FROM sales_summary"
+all_data_query = "SELECT store, date, cash_in, paid_in, paid_out FROM sales_summary"
 df_all = pd.read_sql(all_data_query, conn)
 df_all["cash_in"] = pd.to_numeric(df_all["cash_in"], errors="coerce").fillna(0)
+df_all["paid_in"] = pd.to_numeric(df_all["paid_in"], errors="coerce").fillna(0)
+df_all["paid_out"] = pd.to_numeric(df_all["paid_out"], errors="coerce").fillna(0)
+df_all["net_cash_recon"] = df_all["cash_in"] + df_all["paid_in"] - df_all["paid_out"]
 df_all["date"] = pd.to_datetime(df_all["date"]).dt.date
 
-# Create pivot table with all data
-pivot_all = df_all.pivot_table(index="date", columns="store", values="cash_in", aggfunc="sum", fill_value=0)
+# Create pivot table with all data using net cash reconciliation
+pivot_all = df_all.pivot_table(index="date", columns="store", values="net_cash_recon", aggfunc="sum", fill_value=0)
 
 # Sort by date descending to show latest dates first
 pivot_all = pivot_all.sort_index(ascending=False)
@@ -129,7 +145,7 @@ def export_cash_recon_to_pdf():
         date_b64 = img_to_base64(date_img)
 
         # Create simplified tables for PDF
-        cash_by_date_summary = cash_by_date_store.groupby("date")["cash_in"].sum().reset_index()
+        recon_by_date_summary = recon_by_date_store.groupby("date")["net_cash_recon"].sum().reset_index()
         pivot_for_pdf = pivot_all.drop('Total', axis=1).drop('Total', axis=0) if 'Total' in pivot_all.columns else pivot_all
         pivot_html = pivot_for_pdf.reset_index().to_html(index=False)
         
@@ -156,15 +172,18 @@ def export_cash_recon_to_pdf():
             <h2>Cash Reconciliation</h2>
             <p><strong>{date_info}</strong></p>
             <p><strong>Stores:</strong> {', '.join(selected_stores)}</p>
+            <p><strong>Formula:</strong> Cash In + Paid In - Paid Out</p>
             <h3>Total Cash In: ${total_cash:,.2f}</h3>
-            <h3>Average Cash In (per record): ${avg_cash:,.2f}</h3>
-            <h3>Cash In by Store</h3>
+            <h3>Total Paid In: ${total_paid_in:,.2f}</h3>
+            <h3>Total Paid Out: ${total_paid_out:,.2f}</h3>
+            <h3>Net Cash Reconciliation: ${total_net_recon:,.2f}</h3>
+            <h3>Net Cash Reconciliation by Store</h3>
             <img src="data:image/jpeg;base64,{store_b64}" />
-            {cash_by_store.to_html(index=False)}
-            <h3>Cash In Over Time by Store</h3>
+            {recon_by_store.to_html(index=False)}
+            <h3>Net Cash Reconciliation Over Time by Store</h3>
             <img src="data:image/jpeg;base64,{date_b64}" />
-            {cash_by_date_summary.to_html(index=False)}
-            <h3>Cash In Pivot Table (All Data)</h3>
+            {recon_by_date_summary.to_html(index=False)}
+            <h3>Cash Reconciliation Pivot Table (All Data)</h3>
             {pivot_html}
         </body>
         </html>
