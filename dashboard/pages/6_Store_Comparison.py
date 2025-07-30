@@ -109,7 +109,7 @@ st.subheader("Discount, Voids & Refunds by Store")
 melted = grouped.melt(id_vars="store", value_vars=["dd_discount", "void_amount", "refund"])
 fig_misc = px.bar(
     melted,
-    x="store", y="value", color="variable", barmode="group"
+    x="store", y="value", color="variable", barmode="group",text_auto=True,
 )
 st.plotly_chart(fig_misc, use_container_width=True)
 
