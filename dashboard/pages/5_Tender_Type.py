@@ -82,7 +82,7 @@ rename_map = {
     "4000098": "Grubhub",
     "4000106": "Uber Eats",
     "4000107": "Doordash",
-    "4000097 gift card redeem offline": "GC Redeem Offline"
+    "4000097": "GC Redeem Offline"
 }
 df = df[~df['tender_type'].str.lower().str.contains("gl")]  # Remove GL lines
 df['tender_type'] = df['tender_type'].str.lower().replace(rename_map)
