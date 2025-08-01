@@ -105,8 +105,16 @@ st.subheader("Average Check by Store")
 fig_check = px.bar(grouped, x="store", y="avg_check", text_auto=True)
 st.plotly_chart(fig_check, use_container_width=True)
 
-st.subheader("Discount, Voids & Refunds by Store")
-melted = grouped.melt(id_vars="store", value_vars=["dd_discount", "void_amount", "refund"])
+st.subheader("Discount")
+melted = grouped.melt(id_vars="store", value_vars=["dd_discount"])
+fig_misc = px.bar(
+    melted,
+    x="store", y="value", color="variable", barmode="group",text_auto=True,
+)
+st.plotly_chart(fig_misc, use_container_width=True)
+
+st.subheader("Voids & Refunds by Store")
+melted = grouped.melt(id_vars="store", value_vars=["void_amount", "refund"])
 fig_misc = px.bar(
     melted,
     x="store", y="value", color="variable", barmode="group",text_auto=True,
