@@ -62,7 +62,7 @@ def load_to_sqlite():
 
             # Optional: Convert 'Date' column to datetime
             if 'Date' in df.columns:
-                df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+                df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
 
             # Schema validation
             expected = set(expected_columns[table_name])
