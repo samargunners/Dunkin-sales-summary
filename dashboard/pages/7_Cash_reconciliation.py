@@ -118,7 +118,7 @@ df_all["cash_in"] = pd.to_numeric(df_all["cash_in"], errors="coerce").fillna(0)
 df_all["paid_in"] = pd.to_numeric(df_all["paid_in"], errors="coerce").fillna(0)
 df_all["paid_out"] = pd.to_numeric(df_all["paid_out"], errors="coerce").fillna(0)
 df_all["net_cash_recon"] = df_all["cash_in"] + df_all["paid_in"] - df_all["paid_out"]
-df_all["date"] = pd.to_datetime(df_all["date"]).dt.date
+df_all["date"] = pd.to_datetime(df_all["date"], errors="coerce").dt.date
 
 # Create pivot table with all data using net cash reconciliation
 pivot_all = df_all.pivot_table(index="date", columns="store", values="net_cash_recon", aggfunc="sum", fill_value=0)
