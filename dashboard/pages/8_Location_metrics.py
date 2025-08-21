@@ -144,3 +144,19 @@ for i, (label, change) in enumerate(guest_changes):
         cols[i].metric(f"Guest % Change ({label})", f"{change:.2f}%")
     else:
         cols[i].metric(f"Guest % Change ({label})", "N/A")
+
+    # --- METRICS BOX 4: Void Counts ---
+    st.markdown("## Void Counts")
+    void_counts = []
+    for period in periods:
+        s, e = get_period_dates(end_date, period)
+        void_qty = pd.read_sql(
+            "SELECT SUM(void_qty) as void_total FROM sales_summary WHERE store = ? AND date BETWEEN ? AND ?",
+            conn, params=[selected_store, s, e])["void_total"].iloc[0]
+        void_counts.append((labels[periods.index(period)], void_qty))
+    cols = st.columns(4)
+    for i, (label, void_qty) in enumerate(void_counts):
+        if void_qty is not None:
+            cols[i].metric(f"Void Count ({label})", f"{int(void_qty)}")
+        else:
+            cols[i].metric(f"Void Count ({label})", "N/A")
