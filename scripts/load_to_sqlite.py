@@ -6,6 +6,7 @@ import os
 
 # --- CONFIGURATION ---
 BASE_DIR = Path(__file__).resolve().parents[1]
+from dashboard.utils import supabase_db
 DB_PATH = BASE_DIR / "db" / "sales.db"
 COMPILED_DIR = BASE_DIR / "data" / "compiled"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)  # ✅ Ensure db/ exists
@@ -85,5 +86,52 @@ def load_to_sqlite():
         os.remove(excel_path)
         print(f"Deleted: {excel_path.name}")
 
+def load_to_supabase():
+    excel_path = get_latest_excel_file()
+    if not excel_path:
+        print("No compiled Excel file found.")
+        return
+
+    print(f"Loading from: {excel_path.name} to Supabase")
+    try:
+        conn = supabase_db.get_supabase_connection()
+    except Exception as e:
+        print(f"Supabase connection error: {e}")
+        return
+
+    sheet_to_table = expected_columns.keys()
+
+    try:
+        for sheet_name in sheet_to_table:
+            table_name = sheet_name
+            df = pd.read_excel(excel_path, sheet_name=sheet_name)
+
+            # Optional: Convert 'Date' column to datetime
+            if 'Date' in df.columns:
+                df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+
+            # Schema validation
+            expected = set(expected_columns[table_name])
+            actual = set(df.columns)
+            if not expected.issubset(actual):
+                missing = expected - actual
+                raise ValueError(f"Missing columns in '{sheet_name}': {missing}")
+
+            print(f"Inserting '{sheet_name}' into table '{table_name}' (Supabase)...")
+            # Build insert query
+            cols = ','.join(df.columns)
+            vals_placeholder = ','.join(['%s'] * len(df.columns))
+            insert_query = f"INSERT INTO {table_name} ({cols}) VALUES ({vals_placeholder})"
+            data = df.values.tolist()
+            with conn.cursor() as cur:
+                cur.executemany(insert_query, data)
+        conn.commit()
+        print(" All sheets successfully loaded into Supabase.")
+    except Exception as e:
+        print(f"Error during Supabase loading: {e}")
+    finally:
+        conn.close()
+
 if __name__ == "__main__":
     load_to_sqlite()
+    load_to_supabase()

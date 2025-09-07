@@ -16,3 +16,6 @@ data/compiled/
 
 # Ignore database files if needed
 db/*.db
+
+# Ignore supabase configuration
+dashboard/supabase.toml
