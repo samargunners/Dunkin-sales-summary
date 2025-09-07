@@ -4,8 +4,9 @@ import pandas as pd
 import sqlite3
 import os
 
-# --- CONFIGURATION ---
 BASE_DIR = Path(__file__).resolve().parents[1]
+import sys
+sys.path.append(str(BASE_DIR))
 from dashboard.utils import supabase_db
 DB_PATH = BASE_DIR / "db" / "sales.db"
 COMPILED_DIR = BASE_DIR / "data" / "compiled"
