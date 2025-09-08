@@ -186,6 +186,20 @@ st.markdown("## 🚗 HME (Drive-Thru) Metrics")
 hme_labels = ["Weekly", "MTD", "QTD", "YTD"]
 hme_periods = ["week", "month", "quarter", "year"]
 
+# Store mapping for HME queries
+store_map = {
+    "MtJoy": 343939,
+    "Enola": 357993,
+    "Columbia": 358529,
+    "Lititz": 359042,
+    "Marietta": 363271,
+    "E-Town": 364322,
+}
+
+# When user selects a store, get the store number for HME queries
+selected_store_name = selected_store  # selected_store is the store name from filter
+hme_store_number = store_map.get(selected_store_name)
+
 def fetch_hme(store, start, end):
     q = """
         SELECT date, time_measure, total_cars, menu_all, greet_all, service, lane_queue, lane_total
@@ -227,8 +241,8 @@ for per, label in zip(hme_periods, hme_labels):
     curr_s, curr_e = get_period_dates(end_date, per)
     prev_s, prev_e = get_prev_period_dates(end_date, per)
 
-    df_curr = fetch_hme(selected_store, curr_s, curr_e)
-    df_prev = fetch_hme(selected_store, prev_s, prev_e)
+    df_curr = fetch_hme(hme_store_number, curr_s, curr_e)
+    df_prev = fetch_hme(hme_store_number, prev_s, prev_e)
 
     s_curr = summarize_hme(df_curr)
     s_prev = summarize_hme(df_prev)
@@ -278,7 +292,7 @@ for (title, key) in kpi_titles:
 
 st.markdown("### Daypart Breakdown (selected period)")
 
-df_sel = fetch_hme(selected_store, start_date, end_date)
+df_sel = fetch_hme(hme_store_number, start_date, end_date)
 
 if df_sel.empty:
     st.info("No HME records for the selected period.")
