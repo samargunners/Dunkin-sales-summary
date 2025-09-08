@@ -5,7 +5,7 @@ from utils.db import get_connection
 import tempfile
 import base64
 import os
-from weasyprint import HTML
+from fpdf import FPDF
 
 # Configure page layout
 st.set_page_config(page_title="Cash Reconciliation", layout="wide")
@@ -140,71 +140,54 @@ def export_cash_recon_to_pdf():
         fig_store.write_image(store_img, format="jpg", scale=2)
         fig_date.write_image(date_img, format="jpg", scale=2)
 
-        def img_to_base64(img_path):
-            with open(img_path, "rb") as img_file:
-                return base64.b64encode(img_file.read()).decode()
-
-        store_b64 = img_to_base64(store_img)
-        date_b64 = img_to_base64(date_img)
-
-        # Create simplified tables for PDF
-        recon_by_date_summary = recon_by_date_store.groupby("date")["net_cash_recon"].sum().reset_index()
-        pivot_for_pdf = pivot_all.drop('Total', axis=1).drop('Total', axis=0) if 'Total' in pivot_all.columns else pivot_all
-        pivot_html = pivot_for_pdf.reset_index().to_html(index=False)
-        
-        # Format date selection info for PDF
+        pdf_path = os.path.join(tmpdir, "Cash_Reconciliation.pdf")
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=14)
+        pdf.cell(0, 10, "Cash Reconciliation Report", ln=True, align="C")
+        pdf.set_font("Arial", size=12)
+        # Date info
         if start_date == end_date:
             date_info = f"Single Date: {start_date}"
         else:
             date_info = f"Date Range: {start_date} to {end_date}"
+        pdf.cell(0, 10, date_info, ln=True)
+        pdf.cell(0, 10, f"Stores: {', '.join(selected_stores)}", ln=True)
+        pdf.cell(0, 10, "Formula: Cash In + Paid In - Paid Out", ln=True)
+        pdf.cell(0, 10, f"Total Cash In: ${total_cash:,.2f}", ln=True)
+        pdf.cell(0, 10, f"Total Paid In: ${total_paid_in:,.2f}", ln=True)
+        pdf.cell(0, 10, f"Total Paid Out: ${total_paid_out:,.2f}", ln=True)
+        pdf.cell(0, 10, f"Net Cash Reconciliation: ${total_net_recon:,.2f}", ln=True)
 
-        html_content = f"""
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <style>
-                body {{ font-family: Arial, sans-serif; }}
-                h2 {{ color: #d17a22; }}
-                table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }}
-                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: center; }}
-                th {{ background-color: #f2f2f2; }}
-                img {{ display: block; margin: 20px auto; max-width: 700px; }}
-            </style>
-        </head>
-        <body>
-            <h2>Cash Reconciliation</h2>
-            <p><strong>{date_info}</strong></p>
-            <p><strong>Stores:</strong> {', '.join(selected_stores)}</p>
-            <p><strong>Formula:</strong> Cash In + Paid In - Paid Out</p>
-            <h3>Total Cash In: ${total_cash:,.2f}</h3>
-            <h3>Total Paid In: ${total_paid_in:,.2f}</h3>
-            <h3>Total Paid Out: ${total_paid_out:,.2f}</h3>
-            <h3>Net Cash Reconciliation: ${total_net_recon:,.2f}</h3>
-            <h3>Net Cash Reconciliation by Store</h3>
-            <img src="data:image/jpeg;base64,{store_b64}" />
-            {recon_by_store.to_html(index=False)}
-            <h3>Net Cash Reconciliation Over Time by Store</h3>
-            <img src="data:image/jpeg;base64,{date_b64}" />
-            {recon_by_date_summary.to_html(index=False)}
-            <h3>Cash Reconciliation Pivot Table (All Data)</h3>
-            {pivot_html}
-        </body>
-        </html>
-        """
+        # Add chart images
+        pdf.cell(0, 10, "Net Cash Reconciliation by Store", ln=True)
+        pdf.image(store_img, w=170)
+        pdf.cell(0, 10, "Net Cash Reconciliation Over Time by Store", ln=True)
+        pdf.image(date_img, w=170)
 
-        pdf_path = os.path.join(tmpdir, "Cash_Reconciliation.pdf")
-        try:
-            HTML(string=html_content).write_pdf(pdf_path)
-            with open(pdf_path, "rb") as f:
-                pdf_bytes = f.read()
-            st.download_button(
-                label="📤 Download PDF",
-                data=pdf_bytes,
-                file_name="Cash_Reconciliation.pdf",
-                mime="application/pdf"
-            )
-        except Exception as e:
-            st.error(f"PDF export failed: {e}")
+        # Add summary table
+        pdf.cell(0, 10, "Summary Table:", ln=True)
+        for idx, row in recon_by_store.iterrows():
+            pdf.cell(0, 10, f"{row['store']}: ${row['net_cash_recon']:,.2f}", ln=True)
+
+        # Add pivot table (first 10 rows for brevity)
+        pdf.cell(0, 10, "Pivot Table (first 10 rows):", ln=True)
+        pivot_for_pdf = pivot_all.drop('Total', axis=1).drop('Total', axis=0) if 'Total' in pivot_all.columns else pivot_all
+        pivot_for_pdf = pivot_for_pdf.head(10)
+        pdf.set_font("Arial", size=10)
+        for idx, row in pivot_for_pdf.iterrows():
+            row_str = f"{idx}: " + ", ".join([f"{col}: ${row[col]:,.2f}" for col in pivot_for_pdf.columns])
+            pdf.cell(0, 8, row_str, ln=True)
+
+        pdf.output(pdf_path)
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+        st.download_button(
+            label="📤 Download PDF",
+            data=pdf_bytes,
+            file_name="Cash_Reconciliation.pdf",
+            mime="application/pdf"
+        )
 
 if st.button("📤 Export This Page to PDF"):
     export_cash_recon_to_pdf()
