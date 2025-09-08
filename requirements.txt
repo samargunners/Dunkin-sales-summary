@@ -8,3 +8,4 @@ google-auth-oauthlib
 google-api-python-client
 toml
 psycopg2-binary
+pdfkit
