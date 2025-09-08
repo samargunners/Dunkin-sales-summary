@@ -188,7 +188,7 @@ store_map = {
     "Columbia": 358529,
     "Lititz": 359042,
     "Marietta": 363271,
-    "E-Town": 364322,
+    "ETown": 364322,
 }
 
 # When user selects a store, get the store number for HME queries
