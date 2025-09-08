@@ -329,4 +329,4 @@ if selected_store_name != "Paxton":
 
         st.dataframe(agg_display, use_container_width=True)
 
-st.write(st.secrets.get("supabase", {}))
+
