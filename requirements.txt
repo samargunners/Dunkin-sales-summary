@@ -9,3 +9,4 @@ google-api-python-client
 toml
 psycopg2-binary
 pdfkit
+fpdf
