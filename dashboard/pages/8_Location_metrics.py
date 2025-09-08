@@ -319,3 +319,5 @@ else:
     }, inplace=True)
 
     st.dataframe(agg_display, use_container_width=True)
+
+st.write(st.secrets["supabase"])
