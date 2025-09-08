@@ -20,4 +20,6 @@ db/*.db
 # Ignore supabase configuration
 dashboard/supabase.toml
 
+.streamlit/.secrets.toml
+
 .streamlit/secrets.toml
