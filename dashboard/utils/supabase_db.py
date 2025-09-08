@@ -61,13 +61,13 @@ def _get_db_params() -> dict:
     # Secrets might come from TOML or env. Support both structures.
     host = s.get("SUPABASE_HOST") or s.get("host")
     port = s.get("SUPABASE_PORT") or s.get("port") or "5432"
-    db   = s.get("SUPABASE_DB")   or s.get("dbname") or "postgres"
+    db   = s.get("SUPABASE_DB") or s.get("dbname") or s.get("database") or "postgres"
     user = s.get("SUPABASE_USER") or s.get("user")   or "postgres"
     pwd  = s.get("SUPABASE_PASS") or s.get("password")
 
     if not (host and db and user and pwd):
         raise ValueError(
-            "Missing Supabase DB parameters. Need host, dbname, user, password. "
+            "Missing Supabase DB parameters. Need host, dbname/database, user, password. "
             "Check your .streamlit/secrets.toml or env vars."
         )
     return dict(host=host, port=port, dbname=db, user=user, password=pwd)
