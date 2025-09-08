@@ -161,3 +161,159 @@ for i, (label, void_qty) in enumerate(void_counts):
         cols[i].metric(f"Void Count ({label})", f"{int(void_qty)}")
     else:
         cols[i].metric(f"Void Count ({label})", "N/A")
+
+
+# helper to compure weighted averages. 
+
+def weighted_avg(series, weights):
+    if series is None or weights is None:
+        return None
+    s = pd.Series(series)
+    w = pd.Series(weights)
+    denom = w.sum(skipna=True)
+    return float((s * w).sum(skipna=True) / denom) if denom and denom > 0 else None
+
+def format_secs(x):
+    return f"{x:.0f} sec" if x is not None else "N/A"
+
+
+#Period HME metrics (Weekly / MTD / QTD / YTD)
+
+st.markdown("## 🚗 HME (Drive-Thru) Metrics")
+
+hme_labels = ["Weekly", "MTD", "QTD", "YTD"]
+hme_periods = ["week", "month", "quarter", "year"]
+
+def fetch_hme(store, start, end):
+    q = """
+        SELECT date, time_measure, total_cars, menu_all, greet_all, service, lane_queue, lane_total
+        FROM hme_report
+        WHERE store = ? AND date BETWEEN ? AND ?
+    """
+    df = pd.read_sql(q, conn, params=[store, start, end])
+    return df
+
+def summarize_hme(df):
+    if df is None or df.empty:
+        return {
+            "cars": 0,
+            "menu_all": None,
+            "greet_all": None,
+            "service": None,
+            "lane_queue": None,
+            "lane_total": None
+        }
+    cars = df["total_cars"].fillna(0)
+    return {
+        "cars": int(cars.sum()),
+        "menu_all": weighted_avg(df["menu_all"], cars),
+        "greet_all": weighted_avg(df["greet_all"], cars),
+        "service": weighted_avg(df["service"], cars),
+        "lane_queue": weighted_avg(df["lane_queue"], cars),
+        "lane_total": weighted_avg(df["lane_total"], cars),
+    }
+
+def pct_change(curr, prev):
+    if prev is None or prev == 0 or curr is None:
+        return None
+    return (curr - prev) / prev * 100.0
+
+
+# Build metric rows for each period + previous-period deltas
+hme_rows = []
+for per, label in zip(hme_periods, hme_labels):
+    curr_s, curr_e = get_period_dates(end_date, per)
+    prev_s, prev_e = get_prev_period_dates(end_date, per)
+
+    df_curr = fetch_hme(selected_store, curr_s, curr_e)
+    df_prev = fetch_hme(selected_store, prev_s, prev_e)
+
+    s_curr = summarize_hme(df_curr)
+    s_prev = summarize_hme(df_prev)
+
+    hme_rows.append({
+        "label": label,
+        "curr": s_curr,
+        "prev": s_prev,
+        "delta": {
+            "cars": pct_change(s_curr["cars"], s_prev["cars"]) if s_prev["cars"] else None,
+            "menu_all": pct_change(s_curr["menu_all"], s_prev["menu_all"]),
+            "greet_all": pct_change(s_curr["greet_all"], s_prev["greet_all"]),
+            "service": pct_change(s_curr["service"], s_prev["service"]),
+            "lane_queue": pct_change(s_curr["lane_queue"], s_prev["lane_queue"]),
+            "lane_total": pct_change(s_curr["lane_total"], s_prev["lane_total"]),
+        }
+    })
+
+# Top-line: Lane Total (primary), then Service, Greet, Menu, Cars
+kpi_titles = [
+    ("Lane Total (avg)", "lane_total"),
+    ("Service (avg)", "service"),
+    ("Greet (avg)", "greet_all"),
+    ("Menu (avg)", "menu_all"),
+    ("Cars (total)", "cars"),
+]
+
+for (title, key) in kpi_titles:
+    cols = st.columns(4)
+    for i, row in enumerate(hme_rows):
+        curr_val = row["curr"][key]
+        delta = row["delta"][key]
+
+        if key == "cars":
+            display = f"{int(curr_val) if curr_val is not None else 0}"
+        else:
+            display = format_secs(curr_val)
+
+        if delta is None:
+            cols[i].metric(f"{title} — {row['label']}", display)
+        else:
+            # For time-based metrics, a NEGATIVE % delta is GOOD (faster).
+            # Streamlit’s metric "delta" arrow up=bad for time, but we can still show the %.
+            # We’ll pass delta as-is; your team knows that ↓ is good on timing KPIs.
+            cols[i].metric(f"{title} — {row['label']}", display, f"{delta:.1f}%")
+
+
+st.markdown("### Daypart Breakdown (selected period)")
+
+df_sel = fetch_hme(selected_store, start_date, end_date)
+
+if df_sel.empty:
+    st.info("No HME records for the selected period.")
+else:
+    # Aggregate by time_measure (daypart)
+    agg = (
+        df_sel
+        .assign(total_cars=df_sel["total_cars"].fillna(0))
+        .groupby("time_measure", dropna=False, as_index=False)
+        .apply(lambda g: pd.Series({
+            "total_cars": int(g["total_cars"].sum()),
+            "menu_all_avg": weighted_avg(g["menu_all"], g["total_cars"]),
+            "greet_all_avg": weighted_avg(g["greet_all"], g["total_cars"]),
+            "service_avg": weighted_avg(g["service"], g["total_cars"]),
+            "lane_queue_avg": weighted_avg(g["lane_queue"], g["total_cars"]),
+            "lane_total_avg": weighted_avg(g["lane_total"], g["total_cars"]),
+        }))
+        .sort_values(by="time_measure")
+        .reset_index(drop=True)
+    )
+
+    # Pretty formatting
+    def fsec(v): return f"{v:.0f}" if v is not None else "—"
+    agg_display = agg.copy()
+    agg_display["menu_all_avg"] = agg_display["menu_all_avg"].map(fsec)
+    agg_display["greet_all_avg"] = agg_display["greet_all_avg"].map(fsec)
+    agg_display["service_avg"] = agg_display["service_avg"].map(fsec)
+    agg_display["lane_queue_avg"] = agg_display["lane_queue_avg"].map(fsec)
+    agg_display["lane_total_avg"] = agg_display["lane_total_avg"].map(fsec)
+    agg_display.rename(columns={
+        "time_measure": "Daypart",
+        "total_cars": "Cars",
+        "menu_all_avg": "Menu (avg sec)",
+        "greet_all_avg": "Greet (avg sec)",
+        "service_avg": "Service (avg sec)",
+        "lane_queue_avg": "Lane Queue (avg sec)",
+        "lane_total_avg": "Lane Total (avg sec)",
+    }, inplace=True)
+
+    st.dataframe(agg_display, use_container_width=True)
