@@ -7,6 +7,7 @@ import sys
 import os
 import re
 import pandas as pd
+import toml
 
 # Paths
 THIS_FILE = Path(__file__).resolve()
@@ -123,4 +124,5 @@ def main():
     print("[OK] Upload complete.")
 
 if __name__ == "__main__":
+    print(toml.load("C:/Projects/Dunkin-sales-summary/.streamlit/secrets.toml"))
     main()
