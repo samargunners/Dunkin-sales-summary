@@ -57,7 +57,7 @@ def _load_secrets() -> dict:
     )
 
 def _get_db_params() -> dict:
-    s = _load_secrets()
+    s = _load_secrets().get("supabase", {})
     # Secrets might come from TOML or env. Support both structures.
     host = s.get("SUPABASE_HOST") or s.get("host")
     port = s.get("SUPABASE_PORT") or s.get("port") or "5432"
