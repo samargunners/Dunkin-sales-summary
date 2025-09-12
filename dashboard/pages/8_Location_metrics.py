@@ -199,6 +199,7 @@ store_map = {
     "Lititz": 359042,
     "Marietta": 363271,
     "ETown": 364322,
+    "Paxton": None  # No HME data for Paxton
 }
 
 def fetch_hme(store, start, end):
