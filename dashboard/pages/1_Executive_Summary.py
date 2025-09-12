@@ -1,6 +1,7 @@
 # streamlit_app/pages/1_Executive_Summary.py
 
 import streamlit as st
+from utils.checkbox_multiselect import checkbox_multiselect
 import pandas as pd
 from utils.db import get_connection
 from datetime import datetime
@@ -21,8 +22,8 @@ conn = get_connection()
 # Get available stores from the database
 store_list = pd.read_sql("SELECT DISTINCT Store FROM sales_summary", conn)["store"].tolist()
 
-# Store filter (multi-select with checkboxes)
-selected_stores = st.multiselect("Select Stores", store_list, default=store_list)
+# Store filter (checkbox multiselect)
+selected_stores = checkbox_multiselect("Select Stores", store_list, key="store")
 
 # Simple date selection
 st.subheader("📅 Date Selection")

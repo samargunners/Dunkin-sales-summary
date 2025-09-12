@@ -1,6 +1,7 @@
 # streamlit_app/pages/3_Daypart_Analysis.py
 
 import streamlit as st
+from utils.checkbox_multiselect import checkbox_multiselect
 import pandas as pd
 from utils.db import get_connection
 import plotly.express as px
@@ -19,7 +20,7 @@ conn = get_connection()
 
 # --- FILTERS ---
 store_list = pd.read_sql("SELECT DISTINCT store FROM sales_by_daypart", conn)["store"].tolist()
-selected_stores = st.multiselect("Select Stores", store_list, default=store_list)
+selected_stores = checkbox_multiselect("Select Stores", store_list, key="store")
 
 # Simple date selection
 st.subheader("📅 Date Selection")

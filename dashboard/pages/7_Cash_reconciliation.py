@@ -1,4 +1,5 @@
 import streamlit as st
+from utils.checkbox_multiselect import checkbox_multiselect
 import pandas as pd
 import plotly.express as px
 from utils.db import get_connection
@@ -16,7 +17,7 @@ conn = get_connection()
 
 # --- FILTERS ---
 store_list = pd.read_sql("SELECT DISTINCT store FROM sales_summary", conn)["store"].tolist()
-selected_stores = st.multiselect("Select Stores", store_list, default=store_list)
+selected_stores = checkbox_multiselect("Select Stores", store_list, key="store")
 
 min_date = pd.read_sql("SELECT MIN(date) as min_date FROM sales_summary", conn)["min_date"].iloc[0]
 max_date = pd.read_sql("SELECT MAX(date) as max_date FROM sales_summary", conn)["max_date"].iloc[0]
