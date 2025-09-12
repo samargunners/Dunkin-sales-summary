@@ -21,7 +21,7 @@ conn = get_connection()
 # Get available stores from the database
 store_list = pd.read_sql("SELECT DISTINCT Store FROM sales_summary", conn)["store"].tolist()
 
-# Store filter
+# Store filter (multi-select with checkboxes)
 selected_stores = st.multiselect("Select Stores", store_list, default=store_list)
 
 # Simple date selection

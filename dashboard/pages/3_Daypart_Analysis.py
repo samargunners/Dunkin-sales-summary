@@ -19,7 +19,7 @@ conn = get_connection()
 
 # --- FILTERS ---
 store_list = pd.read_sql("SELECT DISTINCT store FROM sales_by_daypart", conn)["store"].tolist()
-selected_stores = st.multiselect("Select stores", store_list, default=store_list)
+selected_stores = st.multiselect("Select Stores", store_list, default=store_list)
 
 # Simple date selection
 st.subheader("📅 Date Selection")

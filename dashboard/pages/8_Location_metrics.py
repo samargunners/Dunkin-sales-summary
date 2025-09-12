@@ -10,7 +10,7 @@ supabase_conn = get_supabase_connection()
 
 # --- FILTERS ---
 store_list = pd.read_sql("SELECT DISTINCT store FROM labor_metrics", conn)["store"].tolist()
-selected_store = st.selectbox("Select Store", store_list)
+selected_stores = st.multiselect("Select Stores", store_list, default=store_list)
 
 st.subheader("📅 Date Selection")
 range_mode = st.checkbox("Select a date range instead of a single date?")
