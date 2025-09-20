@@ -42,12 +42,10 @@ values (
 """
 
 def find_latest_transformed() -> Path | None:
-    # Prefer XLSX; fallback to CSV; consider dated variants too
+    # Only consider XLSX files
     candidates = list((DATA_DIR / "transformed").glob("hme_transformed.xlsx"))
-    candidates += list((DATA_DIR / "transformed").glob("hme_transformed.csv"))
     if not candidates:
         candidates += sorted((DATA_DIR / "transformed").glob("hme_transformed_*.xlsx"), reverse=True)
-        candidates += sorted((DATA_DIR / "transformed").glob("hme_transformed_*.csv"), reverse=True)
     if not candidates:
         return None
     return max(candidates, key=lambda p: p.stat().st_mtime)
@@ -63,7 +61,7 @@ def load_for_upload(path: Path) -> pd.DataFrame:
     if path.suffix.lower() == ".xlsx":
         df = pd.read_excel(path)
     else:
-        df = pd.read_csv(path)
+        raise ValueError(f"[ERR] Only XLSX files are supported for upload: {path}")
 
     # Expect columns from transform script
     needed = [
@@ -97,8 +95,8 @@ def load_for_upload(path: Path) -> pd.DataFrame:
 def main():
     src = find_latest_transformed()
     if not src:
-        print("[ERR] Could not find a transformed file in: transformed/")
-        print("      Expected hme_transformed.xlsx or hme_transformed.csv")
+        print("[ERR] Could not find a transformed XLSX file in: transformed/")
+        print("      Expected hme_transformed.xlsx or hme_transformed_*.xlsx")
         return
 
     print(f"[INFO] Loading: {src.name}")
