@@ -238,19 +238,23 @@ def pct_change(curr, prev):
 
 
 # Only show HME metrics if store is not Paxton
-if selected_store_name != "Paxton":
-    st.markdown("## 🚗 HME (Drive-Thru) Metrics")
-    hme_labels = ["Weekly", "MTD", "QTD", "YTD"]
-    hme_periods = ["week", "month", "quarter", "year"]
+for selected_store_name in selected_stores:
+    if selected_store_name != "Paxton":
+        st.markdown("## 🚗 HME (Drive-Thru) Metrics")
+        hme_labels = ["Weekly", "MTD", "QTD", "YTD"]
+        hme_periods = ["week", "month", "quarter", "year"]
 
-    # Build metric rows for each period + previous-period deltas
-    hme_rows = []
-    for per, label in zip(hme_periods, hme_labels):
-        curr_s, curr_e = get_period_dates(end_date, per)
-        prev_s, prev_e = get_prev_period_dates(end_date, per)
+        # Map store name to store number for HME queries
+        hme_store_number = store_map.get(selected_store_name)
 
-        df_curr = fetch_hme(hme_store_number, curr_s, curr_e)
-        df_prev = fetch_hme(hme_store_number, prev_s, prev_e)
+        # Build metric rows for each period + previous-period deltas
+        hme_rows = []
+        for per, label in zip(hme_periods, hme_labels):
+            curr_s, curr_e = get_period_dates(end_date, per)
+            prev_s, prev_e = get_prev_period_dates(end_date, per)
+
+            df_curr = fetch_hme(hme_store_number, curr_s, curr_e)
+            df_prev = fetch_hme(hme_store_number, prev_s, prev_e)
 
         s_curr = summarize_hme(df_curr)
         s_prev = summarize_hme(df_prev)
