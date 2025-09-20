@@ -152,22 +152,14 @@ def parse_hme_to_desired(hme_path: Path) -> pd.DataFrame:
     return out
 
 def main():
-    parser = argparse.ArgumentParser(description="Transform raw HME report → Supabase-ready output.")
-    parser.add_argument("input", help="Path to HME Excel (e.g., raw/hme_report.xlsx)")
-    parser.add_argument("--outdir", default="transformed", help="Output folder (default: transformed)")
-    parser.add_argument("--csv",  default=None, help="Output CSV filename (default: hme_transformed.csv)")
-    parser.add_argument("--xlsx", default=None, help="Output XLSX filename (default: hme_transformed.xlsx)")
-    args = parser.parse_args()
+    # Always use hme_report.xlsx in data/raw
+    input_path = Path(__file__).parent.parent / "raw" / "hme_report.xlsx"
+    outdir = Path(__file__).parent / "transformed"
+    outdir.mkdir(parents=True, exist_ok=True)
+    xlsx_path = outdir / "hme_transformed.xlsx"
 
-    input_path = Path(args.input).resolve()
     if not input_path.exists():
         raise SystemExit(f"[ERR] Input file not found: {input_path}")
-
-    outdir = Path(args.outdir)
-    outdir.mkdir(parents=True, exist_ok=True)
-
-    xlsx_name = args.xlsx or "hme_transformed.xlsx"
-    xlsx_path = outdir / xlsx_name
 
     df_out = parse_hme_to_desired(input_path)
     df_out.to_excel(xlsx_path, index=False)
