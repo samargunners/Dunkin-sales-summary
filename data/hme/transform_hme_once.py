@@ -152,33 +152,45 @@ def parse_hme_to_desired(hme_path: Path) -> pd.DataFrame:
     return out
 
 def main():
-    parser = argparse.ArgumentParser(description="Transform raw HME report → Supabase-ready output.")
-    parser.add_argument("input", help="Path to HME Excel (e.g., raw/hme_report.xlsx)")
-    parser.add_argument("--outdir", default="transformed", help="Output folder (default: transformed)")
-    parser.add_argument("--csv",  default=None, help="Output CSV filename (default: hme_transformed.csv)")
-    parser.add_argument("--xlsx", default=None, help="Output XLSX filename (default: hme_transformed.xlsx)")
+
+    parser = argparse.ArgumentParser(description="Transform all HME reports in folder → Supabase-ready output.")
+    default_indir = Path(__file__).parent / "raw"
+    parser.add_argument("--indir", default=str(default_indir), help="Input folder containing HME Excel files")
+    parser.add_argument("--outdir", default="C:/Projects/Dunkin-sales-summary/data/hme/transformed", help="Output folder")
     args = parser.parse_args()
 
-    input_path = Path(args.input).resolve()
-    if not input_path.exists():
-        raise SystemExit(f"[ERR] Input file not found: {input_path}")
-
+    indir = Path(args.indir)
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
-    csv_name  = args.csv  or "hme_transformed.csv"
-    xlsx_name = args.xlsx or "hme_transformed.xlsx"
+    # Match files like summarized_multi_store_daypart_daily_report_2025-09-08.xlsx
+    pattern = re.compile(r"summarized_multi_store_daypart_daily_report_(\d{4})-(\d{2})-(\d{2})\.xlsx")
+    files = [f for f in indir.glob("summarized_multi_store_daypart_daily_report_*.xlsx") if pattern.match(f.name)]
 
-    csv_path  = outdir / csv_name
-    xlsx_path = outdir / xlsx_name
+    if not files:
+        print(f"[ERR] No matching files found in {indir}")
+        return
 
-    df_out = parse_hme_to_desired(input_path)
-    df_out.to_csv(csv_path, index=False)
-    df_out.to_excel(xlsx_path, index=False)
-
-    print(f"[OK] Wrote {len(df_out)} rows to:")
-    print(f" - {csv_path.resolve()}")
-    print(f" - {xlsx_path.resolve()}")
+    for f in files:
+        m = pattern.match(f.name)
+        if not m:
+            continue
+        year, month, day = m.groups()
+        # Remove leading zeros for month/day
+        month = str(int(month))
+        day = str(int(day))
+        date_str = f"{month}_{day}"
+        csv_name = f"hme_transformed_{date_str}.csv"
+        xlsx_name = f"hme_transformed_{date_str}.xlsx"
+        csv_path = outdir / csv_name
+        xlsx_path = outdir / xlsx_name
+        try:
+            df_out = parse_hme_to_desired(f)
+            df_out.to_csv(csv_path, index=False)
+            df_out.to_excel(xlsx_path, index=False)
+            print(f"[OK] {f.name} → {csv_name}, {xlsx_name} ({len(df_out)} rows)")
+        except Exception as e:
+            print(f"[ERR] Failed to process {f.name}: {e}")
 
 if __name__ == "__main__":
     main()
