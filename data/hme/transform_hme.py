@@ -166,18 +166,13 @@ def main():
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
-    csv_name  = args.csv  or "hme_transformed.csv"
     xlsx_name = args.xlsx or "hme_transformed.xlsx"
-
-    csv_path  = outdir / csv_name
     xlsx_path = outdir / xlsx_name
 
     df_out = parse_hme_to_desired(input_path)
-    df_out.to_csv(csv_path, index=False)
     df_out.to_excel(xlsx_path, index=False)
 
     print(f"[OK] Wrote {len(df_out)} rows to:")
-    print(f" - {csv_path.resolve()}")
     print(f" - {xlsx_path.resolve()}")
 
 if __name__ == "__main__":
