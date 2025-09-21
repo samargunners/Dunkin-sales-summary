@@ -152,8 +152,8 @@ def parse_hme_to_desired(hme_path: Path) -> pd.DataFrame:
     return out
 
 def main():
-    # Always use hme_report.xlsx in data/raw
-    input_path = Path(__file__).parent.parent / "raw" / "hme_report.xlsx"
+    # Always use hme_report.xlsx in data/hme/raw
+    input_path = Path(__file__).parent / "raw" / "hme_report.xlsx"
     outdir = Path(__file__).parent / "transformed"
     outdir.mkdir(parents=True, exist_ok=True)
     xlsx_path = outdir / "hme_transformed.xlsx"

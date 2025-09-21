@@ -59,14 +59,15 @@ def run(script_path: Path):
 
 def main():
     try:
-        # Adjust these three paths if your files live elsewhere
-        SCRIPTS_DIR = BASE_DIR / "scripts"
-        HME_DIR = BASE_DIR / "data" / "hme"
+        # Set correct HME paths
+        HME_DIR = BASE_DIR
+        RAW_DIR = HME_DIR / "raw"
+        TRANSFORMED_DIR = HME_DIR / "transformed"
 
         steps = [
             HME_DIR / "download_hme_gmail.py",
-            HME_DIR/ "transform_hme.py",
-            HME_DIR     / "upload_hme_to_supabase.py",
+            HME_DIR / "transform_hme.py",
+            HME_DIR / "upload_hme_to_supabase.py",
         ]
 
         for step in steps:
