@@ -176,22 +176,22 @@ for store in selected_stores:
 
 # helper to compure weighted averages. 
 
-    # --- METRICS BOX 5: Refund Metrics ---
-    for store in selected_stores:
-        st.markdown(f"### Store: {store}")
-        refund_values = []
-        for period in periods:
-            s, e = get_period_dates(end_date, period)
-            refund_total = pd.read_sql(
-                "SELECT SUM(refund) as refund_total FROM sales_summary WHERE store = ? AND date BETWEEN ? AND ?",
-                conn, params=[store, s, e])["refund_total"].iloc[0]
-            refund_values.append((labels[periods.index(period)], refund_total))
-        cols = st.columns(4)
-        for i, (label, refund_total) in enumerate(refund_values):
-            if refund_total is not None:
-                cols[i].metric(f"Refunds ({label})", f"${refund_total:,.2f}")
-            else:
-                cols[i].metric(f"Refunds ({label})", "N/A")
+# --- METRICS BOX 5: Refund Metrics ---
+for store in selected_stores:
+    st.markdown(f"### Store: {store}")
+    refund_values = []
+    for period in periods:
+        s, e = get_period_dates(end_date, period)
+        refund_total = pd.read_sql(
+            "SELECT SUM(refund) as refund_total FROM sales_summary WHERE store = ? AND date BETWEEN ? AND ?",
+            conn, params=[store, s, e])["refund_total"].iloc[0]
+        refund_values.append((labels[periods.index(period)], refund_total))
+    cols = st.columns(4)
+    for i, (label, refund_total) in enumerate(refund_values):
+        if refund_total is not None:
+            cols[i].metric(f"Refunds ({label})", f"${refund_total:,.2f}")
+        else:
+            cols[i].metric(f"Refunds ({label})", "N/A")
 
 def weighted_avg(series, weights):
     if series is None or weights is None:
