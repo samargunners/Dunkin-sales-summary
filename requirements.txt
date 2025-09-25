@@ -12,3 +12,4 @@ pdfkit
 fpdf
 plotly
 weasyprint
+HTML
