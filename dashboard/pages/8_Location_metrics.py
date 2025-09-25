@@ -177,6 +177,7 @@ for store in selected_stores:
 # helper to compure weighted averages. 
 
 # --- METRICS BOX 5: Refund Metrics ---
+st.markdown("## Refund Metrics")
 for store in selected_stores:
     st.markdown(f"### Store: {store}")
     refund_values = []
