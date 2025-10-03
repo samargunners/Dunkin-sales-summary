@@ -59,12 +59,22 @@ if not selected_stores:
     st.warning("Please select at least one store.")
     st.stop()
 
+from utils.supabase_db import get_supabase_connection
+
 query = """
 SELECT store, date, cash_in, paid_in, paid_out
 FROM sales_summary
 WHERE store IN ({}) AND DATE(date) BETWEEN ? AND ?
 """.format(",".join([f"'{s}'" for s in selected_stores]))
 
+
+# --- Supabase latest data check ---
+try:
+    supabase_conn = get_supabase_connection()
+    supabase_latest = pd.read_sql("SELECT MAX(date) as max_date FROM sales_summary", supabase_conn)["max_date"].iloc[0]
+    st.info(f"Latest date in Supabase sales_summary: **{supabase_latest}**")
+except Exception as e:
+    st.warning(f"Could not connect to Supabase or fetch data: {e}")
 df = pd.read_sql(query, conn, params=(str(start_date), str(end_date)))
 
 if df.empty:
