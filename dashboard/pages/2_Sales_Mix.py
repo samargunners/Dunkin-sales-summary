@@ -22,8 +22,8 @@ selected_stores = checkbox_multiselect("Select Stores", store_list, key="store")
 st.subheader("📅 Date Selection")
 st.info("💡 **Tip:** Select one date for single day data, or select two dates for a date range (inclusive)")
 
-min_date = pd.read_sql("SELECT MIN(Date) as min_date FROM sales_by_order_type", conn)["min_date"].iloc[0]
-max_date = pd.read_sql("SELECT MAX(Date) as max_date FROM sales_by_order_type", conn)["max_date"].iloc[0]
+min_date = pd.read_sql("SELECT MIN(date) as min_date FROM sales_by_order_type", conn)["min_date"].iloc[0]
+max_date = pd.read_sql("SELECT MAX(date) as max_date FROM sales_by_order_type", conn)["max_date"].iloc[0]
 min_date = pd.to_datetime(min_date).date()
 max_date = pd.to_datetime(max_date).date()
 
@@ -65,17 +65,15 @@ if not selected_stores:
 # --- Order Type ---
 order_type_query = """
 SELECT * FROM sales_by_order_type
-WHERE store IN ({}) AND DATE(Date) BETWEEN ? AND ?
+WHERE store IN ({}) AND date BETWEEN %s AND %s
 """.format(",".join([f"'{s}'" for s in selected_stores]))
-
 order_df = pd.read_sql(order_type_query, conn, params=(str(start_date), str(end_date)))
 
 # --- Subcategory ---
 subcat_query = """
 SELECT * FROM sales_by_subcategory
-WHERE store IN ({}) AND DATE(Date) BETWEEN ? AND ?
+WHERE store IN ({}) AND date BETWEEN %s AND %s
 """.format(",".join([f"'{s}'" for s in selected_stores]))
-
 subcat_df = pd.read_sql(subcat_query, conn, params=(str(start_date), str(end_date)))
 
 if order_df.empty and subcat_df.empty:

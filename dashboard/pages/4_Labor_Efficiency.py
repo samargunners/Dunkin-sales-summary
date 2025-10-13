@@ -64,9 +64,8 @@ if not selected_stores:
 
 query = """
 SELECT * FROM labor_metrics
-WHERE store IN ({}) AND DATE(date) BETWEEN ? AND ?
+WHERE store IN ({}) AND date BETWEEN %s AND %s
 """.format(",".join([f"'{s}'" for s in selected_stores]))
-
 df = pd.read_sql(query, conn, params=(str(start_date), str(end_date)))
 
 if df.empty:
