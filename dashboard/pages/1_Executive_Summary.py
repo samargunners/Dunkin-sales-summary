@@ -19,8 +19,9 @@ st.title("📊 Executive Summary")
 # --- FILTER CONTEXT ---
 conn = get_supabase_connection()
 
-# Get available stores from the database
-store_list = pd.read_sql("SELECT DISTINCT Store FROM sales_summary", conn)["store"].tolist()
+
+# Get available stores from the database (Postgres is case-sensitive, use lowercase column names)
+store_list = pd.read_sql("SELECT DISTINCT store FROM sales_summary", conn)["store"].tolist()
 
 # Store filter (checkbox multiselect)
 selected_stores = checkbox_multiselect("Select Stores", store_list, key="store")
@@ -72,14 +73,16 @@ if not selected_stores:
     st.warning("Please select at least one store.")
     st.stop()
 
+df = pd.read_sql(query, conn, params=(str(start_date), str(end_date)))
+
+# Use lowercase column names and %s placeholders for Postgres
 query = """
 SELECT * FROM sales_summary
-WHERE Store IN ({})
-  AND DATE(Date) BETWEEN ? AND ?
+WHERE store IN ({})
+    AND date BETWEEN %s AND %s
 """.format(
-    ",".join([f"'{store}'" for store in selected_stores])
+        ",".join([f"'{store}'" for store in selected_stores])
 )
-
 df = pd.read_sql(query, conn, params=(str(start_date), str(end_date)))
 
 if df.empty:
