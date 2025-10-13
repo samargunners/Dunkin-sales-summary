@@ -59,12 +59,10 @@ if not selected_stores:
     st.warning("Please select at least one store.")
     st.stop()
 
-from utils.supabase_db import get_supabase_connection
-
 query = """
 SELECT store, date, cash_in, paid_in, paid_out
 FROM sales_summary
-WHERE store IN ({}) AND DATE(date) BETWEEN ? AND ?
+WHERE store IN ({}) AND date BETWEEN %s AND %s
 """.format(",".join([f"'{s}'" for s in selected_stores]))
 
 
