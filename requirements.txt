@@ -12,3 +12,4 @@ pdfkit
 fpdf
 plotly
 weasyprint
+kaleido        # <-- needed for fig.write_image()
