@@ -4,7 +4,7 @@ import streamlit as st
 from utils.checkbox_multiselect import checkbox_multiselect
 import pandas as pd
 import plotly.express as px
-from utils.db import get_connection
+from utils.supabase_db import get_supabase_connection
 import tempfile
 import base64
 import os
@@ -12,7 +12,7 @@ from weasyprint import HTML
 
 st.title("🏪 Store Comparison Dashboard")
 
-conn = get_connection()
+conn = get_supabase_connection()
 
 # --- FILTERS ---
 store_list = pd.read_sql("SELECT DISTINCT store FROM sales_summary", conn)["store"].tolist()

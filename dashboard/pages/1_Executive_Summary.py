@@ -3,7 +3,7 @@
 import streamlit as st
 from utils.checkbox_multiselect import checkbox_multiselect
 import pandas as pd
-from utils.db import get_connection
+from utils.supabase_db import get_supabase_connection
 from datetime import datetime
 import plotly.express as px
 from utils.exports import export_page_as_pdf
@@ -17,7 +17,7 @@ from weasyprint import HTML
 st.title("📊 Executive Summary")
 
 # --- FILTER CONTEXT ---
-conn = get_connection()
+conn = get_supabase_connection()
 
 # Get available stores from the database
 store_list = pd.read_sql("SELECT DISTINCT Store FROM sales_summary", conn)["store"].tolist()

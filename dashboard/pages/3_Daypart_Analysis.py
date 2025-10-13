@@ -3,7 +3,7 @@
 import streamlit as st
 from utils.checkbox_multiselect import checkbox_multiselect
 import pandas as pd
-from utils.db import get_connection
+from utils.supabase_db import get_supabase_connection
 import plotly.express as px
 from utils.exports import export_page_as_pdf
 from io import StringIO
@@ -16,7 +16,7 @@ from weasyprint import HTML
 st.title("⏰ Sales by Daypart")
 
 # --- DB Connection ---
-conn = get_connection()
+conn = get_supabase_connection()
 
 # --- FILTERS ---
 store_list = pd.read_sql("SELECT DISTINCT store FROM sales_by_daypart", conn)["store"].tolist()

@@ -3,7 +3,7 @@
 import streamlit as st
 from utils.checkbox_multiselect import checkbox_multiselect
 import pandas as pd
-from utils.db import get_connection
+from utils.supabase_db import get_supabase_connection
 import plotly.express as px
 import tempfile
 import base64
@@ -12,7 +12,7 @@ from weasyprint import HTML
 
 st.title("👷 Labor Efficiency Analysis")
 
-conn = get_connection()
+conn = get_supabase_connection()
 
 # --- FILTERS ---
 store_list = pd.read_sql("SELECT DISTINCT store FROM labor_metrics", conn)["store"].tolist()

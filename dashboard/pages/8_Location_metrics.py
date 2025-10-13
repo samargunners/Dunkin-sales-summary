@@ -1,13 +1,11 @@
 import streamlit as st
 from utils.checkbox_multiselect import checkbox_multiselect
 import pandas as pd
-from utils.db import get_connection
 from utils.supabase_db import get_supabase_connection
 
 st.title("💵 Payroll Metrics Dashboard")
 
-conn = get_connection()
-supabase_conn = get_supabase_connection()
+conn = get_supabase_connection()
 
 # --- FILTERS ---
 store_list = pd.read_sql("SELECT DISTINCT store FROM labor_metrics", conn)["store"].tolist()
@@ -226,7 +224,7 @@ def fetch_hme(store, start, end):
         FROM hme_report
         WHERE store = %s AND date BETWEEN %s AND %s
     """
-    df = pd.read_sql(q, supabase_conn, params=[store, start, end])
+    df = pd.read_sql(q, conn, params=[store, start, end])
     return df
 
 def summarize_hme(df):
