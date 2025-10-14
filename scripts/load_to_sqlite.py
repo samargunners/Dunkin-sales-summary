@@ -46,7 +46,11 @@ def get_latest_excel_file():
     excel_files = sorted(COMPILED_DIR.glob("compiled_outputs_*.xlsx"), reverse=True)
     return excel_files[0] if excel_files else None
 
-def load_to_sqlite():
+def get_all_excel_files():
+    excel_files = sorted(COMPILED_DIR.glob("compiled_outputs_*.xlsx"), reverse=True)
+    return excel_files
+
+### def load_to_sqlite():
     excel_path = get_latest_excel_file()
     if not excel_path:
         print("No compiled Excel file found.")
@@ -86,14 +90,14 @@ def load_to_sqlite():
     if DELETE_AFTER_LOAD:
         os.remove(excel_path)
         print(f"Deleted: {excel_path.name}")
-
+###
 def load_to_supabase():
-    excel_path = get_latest_excel_file()
-    if not excel_path:
-        print("No compiled Excel file found.")
+    excel_files = get_all_excel_files()
+    if not excel_files:
+        print("No compiled Excel files found.")
         return
 
-    print(f"Loading from: {excel_path.name} to Supabase")
+    print(f"Found {len(excel_files)} compiled files to upload to Supabase")
     try:
         conn = supabase_db.get_supabase_connection()
     except Exception as e:
@@ -101,38 +105,62 @@ def load_to_supabase():
         return
 
     sheet_to_table = expected_columns.keys()
-
+    
     try:
-        for sheet_name in sheet_to_table:
-            table_name = sheet_name
-            df = pd.read_excel(excel_path, sheet_name=sheet_name)
+        for file_idx, excel_path in enumerate(excel_files, 1):
+            print(f"\n📁 [{file_idx}/{len(excel_files)}] Loading: {excel_path.name}")
 
-            # Optional: Convert 'Date' column to datetime
-            if 'Date' in df.columns:
-                df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+            for sheet_name in sheet_to_table:
+                table_name = sheet_name
+                
+                try:
+                    df = pd.read_excel(excel_path, sheet_name=sheet_name)
+                except Exception as e:
+                    print(f"   ⚠️  Sheet '{sheet_name}' not found in {excel_path.name}, skipping...")
+                    continue
 
-            # Schema validation
-            expected = set(expected_columns[table_name])
-            actual = set(df.columns)
-            if not expected.issubset(actual):
-                missing = expected - actual
-                raise ValueError(f"Missing columns in '{sheet_name}': {missing}")
+                # Optional: Convert 'Date' column to datetime
+                if 'Date' in df.columns:
+                    df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
 
-            print(f"Inserting '{sheet_name}' into table '{table_name}' (Supabase)...")
-            # Build insert query
-            cols = ','.join(df.columns)
-            vals_placeholder = ','.join(['%s'] * len(df.columns))
-            insert_query = f"INSERT INTO {table_name} ({cols}) VALUES ({vals_placeholder})"
-            data = df.values.tolist()
-            with conn.cursor() as cur:
-                cur.executemany(insert_query, data)
+                # Schema validation
+                expected = set(expected_columns[table_name])
+                actual = set(df.columns)
+                if not expected.issubset(actual):
+                    missing = expected - actual
+                    print(f"   ⚠️  Missing columns in '{sheet_name}': {missing}")
+                    continue
+
+                print(f"   📊 Upserting '{sheet_name}' -> {len(df)} rows")
+                
+                # Build upsert query to handle duplicates
+                cols = ','.join(df.columns)
+                vals_placeholder = ','.join(['%s'] * len(df.columns))
+                
+                # Use ON CONFLICT DO UPDATE to handle duplicates
+                update_cols = [col for col in df.columns if col.lower() != 'id']
+                update_clause = ', '.join([f"{col} = EXCLUDED.{col}" for col in update_cols])
+                
+                upsert_query = f"""
+                    INSERT INTO {table_name} ({cols}) 
+                    VALUES ({vals_placeholder})
+                    ON CONFLICT (id) DO UPDATE SET {update_clause}
+                """
+                
+                data = df.values.tolist()
+                with conn.cursor() as cur:
+                    cur.executemany(upsert_query, data)
+            
+            print(f"   ✅ Completed file: {excel_path.name}")
+            
         conn.commit()
-        print(" All sheets successfully loaded into Supabase.")
+        print(f"\n🎉 All {len(excel_files)} files successfully loaded into Supabase!")
+        
     except Exception as e:
         print(f"Error during Supabase loading: {e}")
     finally:
         conn.close()
 
 if __name__ == "__main__":
-    load_to_sqlite()
+    ### load_to_sqlite()
     load_to_supabase()
