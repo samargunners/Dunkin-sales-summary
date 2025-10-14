@@ -41,51 +41,50 @@ def download_email_bodies():
     mail.login(EMAIL, PASSWORD)
     mail.select("inbox")
 
-    result, data = mail.search(None, f'(SENTSINCE {today} SUBJECT "Dunkin Sales Summary")')
+    # Search for the new subject
+    result, data = mail.search(None, f'(SUBJECT "Consolidated Dunkin Sales Summary v2")')
     email_ids = data[0].split()
 
     if not email_ids:
         print("No matching emails found.")
         return
 
-    for e_id in email_ids:
-        res, msg_data = mail.fetch(e_id, "(RFC822)")
-        if res != "OK":
+    # Only process the latest email
+    latest_email_id = email_ids[-1]
+    res, msg_data = mail.fetch(latest_email_id, "(RFC822)")
+    if res != "OK":
+        print("Failed to fetch the latest email.")
+        return
+
+    raw_email = msg_data[0][1]
+    msg = email.message_from_bytes(raw_email)
+
+    subject = decode_header(msg["Subject"])[0][0]
+    if isinstance(subject, bytes):
+        subject = subject.decode()
+    subject = clean_filename(subject)
+
+    # Download all Excel attachments
+    attachment_count = 0
+    for part in msg.walk():
+        if part.get_content_maintype() == "multipart":
             continue
-
-        raw_email = msg_data[0][1]
-        msg = email.message_from_bytes(raw_email)
-
-        subject = decode_header(msg["Subject"])[0][0]
-        if isinstance(subject, bytes):
-            subject = subject.decode()
-        subject = clean_filename(subject)
-
-        pc_number, store_name = extract_store_info(subject)
-
-        attachment_saved = False
-        for part in msg.walk():
-            # Skip multipart containers
-            if part.get_content_maintype() == "multipart":
-                continue
-            # Check if this part has a filename (attachment)
-            filename = part.get_filename()
-            if filename:
-                filename_decoded = decode_header(filename)[0][0]
-                if isinstance(filename_decoded, bytes):
-                    filename_decoded = filename_decoded.decode()
-                # Only save Excel files
-                if filename_decoded.lower().endswith((".xlsx", ".xls")):
-                    save_filename = f"store_{pc_number}_{store_name}_{date_for_filename}.xlsx"
-                    filepath = os.path.join(SAVE_DIR, save_filename)
-                    with open(filepath, "wb") as f:
-                        f.write(part.get_payload(decode=True))
-                    print(f"[OK] Saved attachment: {filepath}")
-                    attachment_saved = True
-                    break
-
-        if not attachment_saved:
-            print(f"No Excel attachment found in: {subject}")
+        filename = part.get_filename()
+        if filename:
+            filename_decoded = decode_header(filename)[0][0]
+            if isinstance(filename_decoded, bytes):
+                filename_decoded = filename_decoded.decode()
+            if filename_decoded.lower().endswith((".xlsx", ".xls")):
+                save_filename = f"{date_for_filename}_{filename_decoded}"
+                filepath = os.path.join(SAVE_DIR, save_filename)
+                with open(filepath, "wb") as f:
+                    f.write(part.get_payload(decode=True))
+                print(f"[OK] Saved attachment: {filepath}")
+                attachment_count += 1
+    if attachment_count == 0:
+        print(f"No Excel attachments found in: {subject}")
+    else:
+        print(f"Total Excel attachments saved: {attachment_count}")
 
     mail.logout()
 

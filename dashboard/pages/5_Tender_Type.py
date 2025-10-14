@@ -4,7 +4,7 @@ import streamlit as st
 from utils.checkbox_multiselect import checkbox_multiselect
 import pandas as pd
 import plotly.express as px
-from utils.db import get_connection
+from utils.supabase_db import get_supabase_connection
 import tempfile
 import base64
 import os
@@ -12,7 +12,7 @@ from weasyprint import HTML
 
 st.title("💳 Tender Type Analysis")
 
-conn = get_connection()
+conn = get_supabase_connection()
 
 # --- FILTERS ---
 store_list = pd.read_sql("SELECT DISTINCT store FROM tender_type_metrics", conn)["store"].tolist()
@@ -64,9 +64,8 @@ if not selected_stores:
 
 query = """
 SELECT * FROM tender_type_metrics
-WHERE store IN ({}) AND DATE(date) BETWEEN ? AND ?
+WHERE store IN ({}) AND date BETWEEN %s AND %s
 """.format(",".join([f"'{s}'" for s in selected_stores]))
-
 df = pd.read_sql(query, conn, params=(str(start_date), str(end_date)))
 
 if df.empty:
