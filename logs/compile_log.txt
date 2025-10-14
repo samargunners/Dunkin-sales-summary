@@ -23,3 +23,76 @@ Processing: 20251012_Consolidated Dunkin Sales Summary v2_Sales Tax 2025-10-12 
 Processing: 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800.xlsx
 Processing: 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx
 Processing: 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+Found 6 consolidated files in /Users/samarpatel/Desktop/samar/Dunkin/Dunkin-Sales-Summary/data/raw_emails
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Menu Mix Metrics 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Sales Mix Detail 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+  Skipped (no recognized category in name): 20251012_Consolidated Dunkin Sales Summary v2_Sales Mix Detail 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+Found 7 consolidated files in /Users/samarpatel/Desktop/samar/Dunkin/Dunkin-Sales-Summary/data/raw_emails
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+  → sheet='Labor Hours 2025-10-12 to 20', header=None, rows=9, cols=57
+  ERROR processing 20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800.xlsx: "['Store', 'PC_Number'] not in index"
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Menu Mix Metrics 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+  → sheet='Menu Mix Metrics 2025-10-12 ', header=None, rows=15, cols=36
+  ERROR processing 20251012_Consolidated Dunkin Sales Summary v2_Menu Mix Metrics 2025-10-12 to 2025-10-12_20251013T0800.xlsx: "['Store', 'PC_Number'] not in index"
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Sales Mix Detail 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+  → sheet='Sales Mix Detail 2025-10-12 ', header=None, rows=35, cols=8
+  ⚠︎ skipped: no recognized category in filename
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+  → sheet='Sales by Daypart 2025-10-12 ', header=None, rows=9, cols=29
+  ERROR processing 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800.xlsx: "['Store', 'PC_Number'] not in index"
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+  → sheet='Sales by Subcategory 2025-10', header=None, rows=35, cols=22
+  ERROR processing 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx: "['Store', 'PC_Number'] not in index"
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+  → sheet='Tender Type 2025-10-12 to 20', header=None, rows=16, cols=10
+  ERROR processing 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800.xlsx: "['Store', 'PC_Number'] not in index"
+  ERROR processing ~$20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx: Could not read any sheet from ~$20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+Found 7 consolidated files in /Users/samarpatel/Desktop/samar/Dunkin/Dunkin-Sales-Summary/data/raw_emails
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Labor Hours 2025-10-12 to 20', header_row=2, hdr_score=33, rows=6, cols=57
+  [labor] PC/Store match → {'pc_col': None, 'store_col': None, 'loc_col': None}
+  [labor] Date match → fallback:2025-10-12
+  [labor] fields → {'Store': 'Store', 'PC_Number': 'PC_Number', 'Date': 'Date', 'Labor_Position': 'LABOR POSITION NAME', 'Reg_Hours': 'Reg Hours', 'OT_Hours': 'OT Hours', 'Total_Hours': 'Total Hours', 'Reg_Pay': 'Reg Pay', 'OT_Pay': 'OT Pay', 'Total_Pay': 'Total Pay', 'Percent_Labor': '% Labor'}
+  sheet 'Labor Hours 2025-10-12 to 20' error: "['Store', 'PC_Number'] not in index"
+  ⚠︎ no rows parsed from any sheet in 20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Menu Mix Metrics 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Menu Mix Metrics 2025-10-12 ', header_row=2, hdr_score=28, rows=12, cols=36
+  [menu] PC/Store match → {'pc_col': None, 'store_col': None, 'loc_col': None}
+  [menu] Date match → fallback:2025-10-12
+  [menu] fields → {'Store': 'Store', 'PC_Number': 'PC_Number', 'Date': 'Date', 'Avg_Check': 'Avg Check'}
+  sheet 'Menu Mix Metrics 2025-10-12 ' error: "['Store', 'PC_Number'] not in index"
+  ⚠︎ no rows parsed from any sheet in 20251012_Consolidated Dunkin Sales Summary v2_Menu Mix Metrics 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Sales Mix Detail 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Sales Mix Detail 2025-10-12 ', header_row=0, hdr_score=1, rows=34, cols=8
+  ⚠︎ skipped: no recognized category in filename
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Sales by Daypart 2025-10-12 ', header_row=2, hdr_score=22, rows=6, cols=29
+  [daypart] PC/Store match → {'pc_col': None, 'store_col': None, 'loc_col': None}
+  [daypart] Date match → fallback:2025-10-12
+  [daypart] fields → {'Store': 'Store', 'PC_Number': 'PC_Number', 'Date': 'Date', 'Daypart': 'Daypart', 'Percent_Sales': '% of Sales', 'Check_Count': 'Avg Check', 'Avg_Check': 'Avg Check'}
+  sheet 'Sales by Daypart 2025-10-12 ' error: "['Store', 'PC_Number'] not in index"
+  ⚠︎ no rows parsed from any sheet in 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Sales by Subcategory 2025-10', header_row=2, hdr_score=22, rows=32, cols=22
+  [subcat] PC/Store match → {'pc_col': None, 'store_col': None, 'loc_col': None}
+  [subcat] Date match → fallback:2025-10-12
+  [subcat] fields → {'Store': 'Store', 'PC_Number': 'PC_Number', 'Date': 'Date', 'Subcategory': 'Subcategory Name', 'Qty_Sold': 'Qty Sold', 'Net_Sales': 'Net Sales', 'Percent_Sales': '% Sales'}
+  sheet 'Sales by Subcategory 2025-10' error: "['Store', 'PC_Number'] not in index"
+  ⚠︎ no rows parsed from any sheet in 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+Processing: 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Tender Type 2025-10-12 to 20', header_row=0, hdr_score=2, rows=15, cols=10
+  sheet 'Tender Type 2025-10-12 to 20' error: boolean value of NA is ambiguous
+  ⚠︎ no rows parsed from any sheet in 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+Processing: ~$20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx → ERROR: no sheets
+[labor_metrics] PC/Store match → {'pc_col': None, 'store_col': None, 'loc_col': None}
+[labor_metrics] Date match → fallback:2025-10-12
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800.xlsx: "['Store', 'PC_Number'] not in index"
+[sales_summary] PC/Store match → {'pc_col': None, 'store_col': None, 'loc_col': None}
+[sales_summary] Date match → fallback:2025-10-12
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Menu Mix Metrics 2025-10-12 to 2025-10-12_20251013T0800.xlsx: "['Store', 'PC_Number'] not in index"
+SKIP (no category): 20251012_Consolidated Dunkin Sales Summary v2_Sales Mix Detail 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+[sales_by_daypart] PC/Store match → {'pc_col': None, 'store_col': None, 'loc_col': None}
+[sales_by_daypart] Date match → fallback:2025-10-12
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800.xlsx: "['Store', 'PC_Number'] not in index"
+[sales_by_subcategory] PC/Store match → {'pc_col': None, 'store_col': None, 'loc_col': None}
+[sales_by_subcategory] Date match → fallback:2025-10-12
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx: "['Store', 'PC_Number'] not in index"
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800.xlsx: boolean value of NA is ambiguous
