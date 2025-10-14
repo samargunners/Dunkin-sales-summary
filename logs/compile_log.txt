@@ -96,3 +96,57 @@ FATAL 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12
 [sales_by_subcategory] Date match → fallback:2025-10-12
 FATAL 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx: "['Store', 'PC_Number'] not in index"
 FATAL 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800.xlsx: boolean value of NA is ambiguous
+[labor_metrics] PC/Store match → {'pc_col': None, 'store_col': None, 'loc_col': None}
+[labor_metrics] Date match → fallback:2025-10-12
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800.xlsx: "['Store', 'PC_Number'] not in index"
+[sales_summary] PC/Store match → {'pc_col': None, 'store_col': None, 'loc_col': None}
+[sales_summary] Date match → fallback:2025-10-12
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Menu Mix Metrics 2025-10-12 to 2025-10-12_20251013T0800.xlsx: "['Store', 'PC_Number'] not in index"
+SKIP (no category): 20251012_Consolidated Dunkin Sales Summary v2_Sales Mix Detail 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+[sales_by_daypart] PC/Store match → {'pc_col': None, 'store_col': None, 'loc_col': None}
+[sales_by_daypart] Date match → fallback:2025-10-12
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800.xlsx: "['Store', 'PC_Number'] not in index"
+[sales_by_subcategory] PC/Store match → {'pc_col': None, 'store_col': None, 'loc_col': None}
+[sales_by_subcategory] Date match → fallback:2025-10-12
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx: "['Store', 'PC_Number'] not in index"
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800.xlsx: boolean value of NA is ambiguous
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800.xlsx: boolean value of NA is ambiguous
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Menu Mix Metrics 2025-10-12 to 2025-10-12_20251013T0800.xlsx: boolean value of NA is ambiguous
+SKIP (no category): 20251012_Consolidated Dunkin Sales Summary v2_Sales Mix Detail 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800.xlsx: boolean value of NA is ambiguous
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx: boolean value of NA is ambiguous
+FATAL 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800.xlsx: boolean value of NA is ambiguous
+[labor_metrics] PC/Store present? PC_Number=True | Store=True
+[labor_metrics] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Labor Hours 2025-10-12 to 20' hdr_row=2 hdr_score=33 → 20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=6, cols=60)
+[sales_summary] PC/Store present? PC_Number=True | Store=True
+[sales_summary] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Menu Mix Metrics 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Menu Mix Metrics 2025-10-12 ' hdr_row=2 hdr_score=29 → 20251012_Consolidated Dunkin Sales Summary v2_Menu Mix Metrics 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=12, cols=23)
+SKIP (no category): 20251012_Consolidated Dunkin Sales Summary v2_Sales Mix Detail 2025-10-12 to 2025-10-12_20251013T0800.xlsx
+[sales_by_daypart] PC/Store present? PC_Number=True | Store=True
+[sales_by_daypart] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Sales by Daypart 2025-10-12 ' hdr_row=2 hdr_score=22 → 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=6, cols=32)
+[sales_by_subcategory] PC/Store present? PC_Number=True | Store=True
+[sales_by_subcategory] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Sales by Subcategory 2025-10' hdr_row=2 hdr_score=22 → 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=31, cols=25)
+[tender_type_metrics] PC/Store present? PC_Number=True | Store=True
+[tender_type_metrics] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Tender Type 2025-10-12 to 20' hdr_row=0 hdr_score=2 → 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=15, cols=5)
+[labor_metrics] PC/Store present? PC_Number=True | Store=True
+[labor_metrics] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Labor Hours 2025-10-12 to 20' hdr_row=2 hdr_score=33 → 20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=6, cols=11)
+[sales_summary] PC/Store present? PC_Number=True | Store=True
+[sales_summary] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Menu Mix Metrics 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Menu Mix Metrics 2025-10-12 ' hdr_row=2 hdr_score=29 → 20251012_Consolidated Dunkin Sales Summary v2_Menu Mix Metrics 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=12, cols=17)
+[sales_mix_detail] PC/Store present? PC_Number=True | Store=True
+[sales_mix_detail] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Sales Mix Detail 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Sales Mix Detail 2025-10-12 ' hdr_row=0 hdr_score=1 → 20251012_Consolidated Dunkin Sales Summary v2_Sales Mix Detail 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=34, cols=10)
+[sales_by_daypart] PC/Store present? PC_Number=True | Store=True
+[sales_by_daypart] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Sales by Daypart 2025-10-12 ' hdr_row=2 hdr_score=22 → 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=6, cols=8)
+[sales_by_subcategory] PC/Store present? PC_Number=True | Store=True
+[sales_by_subcategory] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Sales by Subcategory 2025-10' hdr_row=2 hdr_score=22 → 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=31, cols=7)
+[tender_type_metrics] PC/Store present? PC_Number=True | Store=True
+[tender_type_metrics] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Tender Type 2025-10-12 to 20' hdr_row=0 hdr_score=2 → 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=15, cols=5)
