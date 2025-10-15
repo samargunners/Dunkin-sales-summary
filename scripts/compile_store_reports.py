@@ -1,549 +1,564 @@
 # scripts/compile_store_reports.py
 
 from pathlib import Path
+from io import BytesIO
+from openpyxl import load_workbook
 import pandas as pd
 import re
 import unicodedata
-from openpyxl import load_workbook
 
-# =================== USER TWEAKS ===================
-DEBUG = True                      # verbose console + log output
-INCLUDE_SALES_MIX_DETAIL = True   # <— now ON (you asked not to miss it)
-# ===================================================
-
-# ── Paths
+# =================== CONFIG ===================
+DEBUG = True
 BASE_DIR = Path(__file__).resolve().parents[1]
 RAW_DIR  = BASE_DIR / "data" / "raw_emails"
 OUT_DIR  = BASE_DIR / "data" / "compiled"
-LOG_DIR  = BASE_DIR / "logs"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-LOG_FILE = LOG_DIR / "compile_log.txt"
 
+# ========= STORE / PC MAPPING =========
+LOC_TO_PC = {
+    "301290 - 2820 Paxton St": "301290",
+    "343939 - 807 E Main St": "343939",
+    "357993 - 423 N Enola Rd": "357993",
+    "358529 - 3929 Columbia Avenue": "358529",
+    "359042 - 737 South Broad Street": "359042",
+    "363271 - 1154 River Road": "363271",
+    "364322 - 820 South Market Street": "364322",
+}
+PC_TO_STORE = {
+    "301290":"Paxton","343939":"MountJoy","357993":"Enola",
+    "358529":"Columbia","359042":"Lititz","363271":"Marietta","364322":"Etown",
+}
+# =====================================
+
+# ---------------- Utilities ----------------
 def log(msg: str) -> None:
-    if DEBUG:
-        print(msg)
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(f"{msg}\n")
+    if DEBUG: print(msg)
 
 def norm(s: str) -> str:
     if s is None: return ""
     return unicodedata.normalize("NFKC", str(s)).replace("\u00A0"," ").replace("\u2011","-").strip()
 
-# ── PC → Store mapping (from your reference)
-PC_TO_STORE = {
-    "301290":"Paxton","343939":"MountJoy","357993":"Enola",
-    "358529":"Columbia","359042":"Lititz","363271":"Marietta","364322":"Etown",
-}
-FALLBACK_STORE_TOKENS = {
-    "paxton":"Paxton","enola":"Enola","columbia":"Columbia","lititz":"Lititz",
-    "marietta":"Marietta","mount joy":"MountJoy","mountjoy":"MountJoy","etown":"Etown",
-}
+def key_loc(s: str) -> str:
+    s = norm(s).lower()
+    s = re.sub(r"[.,]", "", s)
+    s = re.sub(r"\s+", " ", s)
+    return s
 
-# ── Default schemas (used if no *_copy.xlsx template is found)
-DEFAULT_SCHEMAS = {
-    "sales_summary": [
-        "Store","PC_Number","Date","Gross_Sales","Net_Sales",
-        "DD_Adjusted_No_Markup","PA_Sales_Tax","DD_Discount","Guest_Count",
-        "Avg_Check","Gift_Card_Sales","Void_Amount","Refund","Void_Qty",
-        "Paid_IN","Paid_OUT","Cash_IN"
-    ],
-    "sales_by_daypart": [
-        "Store","PC_Number","Date","Daypart","Net_Sales","Percent_Sales","Check_Count","Avg_Check"
-    ],
-    "sales_by_subcategory": [
-        "Store","PC_Number","Date","Subcategory","Qty_Sold","Net_Sales","Percent_Sales"
-    ],
-    "tender_type_metrics": [
-        "Store","PC_Number","Date","Tender_Type","Detail_Amount"
-    ],
-    "labor_metrics": [
-        "Store","PC_Number","Date","Labor_Position","Reg_Hours","OT_Hours","Total_Hours",
-        "Reg_Pay","OT_Pay","Total_Pay","Percent_Labor"
-    ],
-    "sales_by_order_type": [
-        "Store","PC_Number","Date","Order_Type","Net_Sales","Percent_Sales","Guests","Percent_Guest","Avg_Check"
-    ],
-    # reasonable default for sales mix detail (item-level)
-    "sales_mix_detail": [
-        "Store","PC_Number","Date","Category","Subcategory","Item","Qty_Sold","Net_Sales","Percent_Sales","Avg_Check"
-    ],
-}
-
-# ── Utilities
-def clean_num(x):
-    if x is None or (isinstance(x,float) and pd.isna(x)): return pd.NA
-    if isinstance(x,(int,float)): return float(x)
-    s = norm(x)
-    if s in {"","--","—","–"}: return pd.NA
-    s = re.sub(r"[^\d.\-]","",s)
-    if not re.search(r"\d",s): return pd.NA
-    try: return float(s)
-    except ValueError: return pd.NA
-
-def find_col(df: pd.DataFrame, patterns):
-    cols_norm = [re.sub(r"\s+"," ", norm(str(c))).lower() for c in df.columns]
-    for pat in patterns:
-        rx = re.compile(pat, re.I)
-        for i,c in enumerate(cols_norm):
-            if rx.search(c):
-                return df.columns[i]
-    return None
-
-def filename_date_fallback(filename: str):
-    m = re.search(r"(\d{4}-\d{2}-\d{2})", filename)
+# location mapping (also accept tail-only address)
+LOC_TO_PC_NORM = { key_loc(k): v for k, v in LOC_TO_PC.items() }
+for k, pc in list(LOC_TO_PC_NORM.items()):
+    m = re.match(r"^\d{6}\s*-\s*(.+)$", k)
     if m:
-        try: return pd.to_datetime(m.group(1)).date()
-        except Exception: return pd.NaT
-    return pd.NaT
+        LOC_TO_PC_NORM[m.group(1).strip()] = pc
 
-def wb_sheetnames(path: Path):
+def map_store_pc(location_name: str):
+    k = key_loc(location_name)
+    pc = LOC_TO_PC_NORM.get(k)
+    if not pc:
+        for kk, v in LOC_TO_PC_NORM.items():
+            if kk in k or k in kk:
+                pc = v; break
+    store = PC_TO_STORE.get(pc) if pc else None
+    return store, pc
+
+def parse_first_date_from_filename(p: Path):
+    m = re.search(r"(\d{4}-\d{2}-\d{2})", p.name)
+    return pd.to_datetime(m.group(1)).date() if m else None
+
+def clean_num(x):
+    if x is None or (isinstance(x, float) and pd.isna(x)): return pd.NA
     try:
-        wb = load_workbook(path, read_only=True, data_only=True)
-        names = wb.sheetnames
-        wb.close()
-        return names
-    except Exception as e:
-        log(f"ERROR opening workbook {path.name}: {e}")
-        return []
+        return float(re.sub(r"[^\d.\-]", "", str(x)))
+    except Exception:
+        return pd.NA
 
-HEADER_KEYWORDS = {
-    "pc","pc number","store #","store number","restaurant number",
-    "store","store name","restaurant","location","location name","revenue center","site","unit","unit name",
-    "date","business date","report date","period","day",
-    "net","sales","gross","avg","check","checks","qty","quantity",
-    "subcategory","category","order type","daypart","tender","position","labor","item","product",
-    "amount","detail amount","percent","%"
-}
+def drop_totals(df: pd.DataFrame, label_col: str) -> pd.DataFrame:
+    if label_col not in df.columns:
+        return df
+    lab = df[label_col].astype(str).str.strip().str.lower()
+    mask = lab.str.startswith("total") | lab.isin({"grand total","store total","overall total","totals"})
+    return df.loc[~mask].copy()
 
-def normalize_and_dedupe_columns(df: pd.DataFrame) -> pd.DataFrame:
-    cols = [re.sub(r"\s+"," ", norm(str(c))).strip() for c in df.columns]
-    out = df.copy()
-    out.columns = cols
-    to_drop = [i for i,c in enumerate(out.columns) if c == "" or c.lower() == "nan"]
-    if to_drop:
-        out = out.drop(out.columns[to_drop], axis=1)
-    out = out.loc[:, ~pd.Index(out.columns).duplicated(keep="first")]
-    return out
+# ------------- In-memory unmerge helpers -------------
+def _wb_to_buf(wb) -> BytesIO:
+    buf = BytesIO(); wb.save(buf); buf.seek(0); return buf
 
-def read_with_header_detection(path: Path, sheet, extra_terms=None):
-    df0 = pd.read_excel(path, sheet_name=sheet, header=None, engine="openpyxl")
-    df0 = df0.dropna(how="all")
-    if df0.empty: return None, None, None, None
-    extra_terms = set(t.lower() for t in (extra_terms or []))
-    def score(values):
-        sc = 0
-        for v in values:
-            s = norm(v).lower()
-            for k in (HEADER_KEYWORDS | extra_terms):
-                if k in s and len(s) <= 64:
-                    sc += 1; break
-        return sc
-    scan = min(10, len(df0))
-    best_idx, best_score = 0, -1
-    for i in range(scan):
-        sc = score(list(df0.iloc[i].values))
-        if sc > best_score:
-            best_idx, best_score = i, sc
-    df = df0.iloc[best_idx+1:].copy()
-    df.columns = df0.iloc[best_idx].astype(str).tolist()
-    df = df.dropna(how="all")
-    df = normalize_and_dedupe_columns(df)
-    return df, best_idx, best_score, df0
-
-def category_from_filename(name_low: str):
-    name_low = re.sub(r"\s+"," ", name_low)
-    if "menu mix metrics" in name_low or "sales mix metrics" in name_low: return "sales_summary"
-    if "sales by daypart"  in name_low: return "sales_by_daypart"
-    if "sales by subcategory" in name_low: return "sales_by_subcategory"
-    if "tender type" in name_low: return "tender_type_metrics"
-    if "labor hours" in name_low or "labor metrics" in name_low: return "labor_metrics"
-    if "order type" in name_low: return "sales_by_order_type"
-    if "sales mix detail" in name_low: return "sales_mix_detail" if INCLUDE_SALES_MIX_DETAIL else None
-    return None
-
-PREFER_KEYS = {
-    "sales_summary": ["menu","mix","metrics","sales mix"],
-    "sales_by_daypart": ["daypart","part"],
-    "sales_by_subcategory": ["subcategory","subcat"],
-    "tender_type_metrics": ["tender","tender type"],
-    "labor_metrics": ["labor","hours","metrics"],
-    "sales_by_order_type": ["order type","order"],
-    "sales_mix_detail": ["sales mix detail","mix detail","item"],
-}
-def prefer_sheets_for_category(sheetnames, category):
-    keys = PREFER_KEYS.get(category, [])
-    scored = []
-    for s in sheetnames:
-        sn = norm(s).lower()
-        scored.append((1 if any(k in sn for k in keys) else 0, s))
-    scored.sort(key=lambda x: -x[0])
-    return [s for _, s in scored] or list(sheetnames)
-
-# ── PC/Store/Date derivation
-PC_PAT = re.compile(r"^\s*(\d{6})\b")
-def derive_pc_store_from_text(txt: str):
-    s = norm(txt)
-    if s == "": return None, None
-    m = PC_PAT.match(s)
-    pc = m.group(1) if m else None
-    store = None
-    if pc is not None and pc in PC_TO_STORE:
-        store = PC_TO_STORE[pc]
-    else:
-        sl = s.lower()
-        for token, short in FALLBACK_STORE_TOKENS.items():
-            if token in sl:
-                store = short; break
-    return pc, store
-
-def ensure_pc_store(df: pd.DataFrame, df_raw_for_scan=None, log_prefix=""):
-    df = df.copy()
-    pc_col = find_col(df, [r"^pc\b", r"\bpc[\s_]*number\b", r"\bstore\s*#\b",
-                           r"\bstore\s*number\b", r"\brestaurant\s*number\b", r"\blocation\s*id\b"])
-    store_col = find_col(df, [r"^store\b", r"\bstore\s*name\b", r"\brestaurant\b",
-                              r"\blocation\b", r"\blocation\s*name\b", r"\brevenue\s*center\b",
-                              r"\bsite\b", r"\bunit\b", r"\bunit\s*name\b"])
-    if pc_col is not None and "PC_Number" not in df.columns: df = df.rename(columns={pc_col:"PC_Number"})
-    if store_col is not None and "Store" not in df.columns: df = df.rename(columns={store_col:"Store"})
-    if "PC_Number" not in df.columns or "Store" not in df.columns:
-        loc_col = find_col(df, [r"\blocation\s*name\b", r"\brevenue\s*center\b", r"\blocation\b",
-                                r"\brestaurant\b", r"\bsite\b", r"\bunit\b", r"\bunit\s*name\b"])
-        if loc_col is not None:
-            pcs, stores = [], []
-            for v in df[loc_col].tolist():
-                pc, st = derive_pc_store_from_text(v)
-                pcs.append(pc); stores.append(st)
-            if "PC_Number" not in df.columns: df["PC_Number"] = pcs
-            if "Store" not in df.columns: df["Store"] = stores
-    need_pc = ("PC_Number" not in df.columns) or df["PC_Number"].isna().all()
-    need_store = ("Store" not in df.columns) or df["Store"].isna().all()
-    candidate = None
-    if need_pc or need_store:
-        for col in df.columns:
-            for v in df[col].head(50):
-                pc, st = derive_pc_store_from_text(v)
-                if pc is not None:
-                    candidate = (pc, st); break
-            if candidate: break
-        if not candidate and df_raw_for_scan is not None:
-            for _, row in df_raw_for_scan.head(20).iterrows():
-                for v in row:
-                    pc, st = derive_pc_store_from_text(v)
-                    if pc is not None:
-                        candidate = (pc, st); break
-                if candidate: break
-        if candidate:
-            pc, st = candidate
-            if need_pc: df["PC_Number"] = pc
-            if need_store: df["Store"] = st
-    if "PC_Number" in df.columns:
-        df["PC_Number"] = df["PC_Number"].astype(str).str.replace(".0","",regex=False).str.strip()
-    if "Store" in df.columns:
-        df["Store"] = df["Store"].astype(str).str.strip()
-    log(f"{log_prefix}PC/Store present? PC_Number={ 'PC_Number' in df.columns } | Store={ 'Store' in df.columns }")
-    return df
-
-def ensure_date(df: pd.DataFrame, date_fallback, log_prefix=""):
-    date_col = find_col(df, [r"^date\b", r"\bbusiness\s*date\b", r"\breport\s*date\b", r"\bperiod\b", r"\bday$"])
-    if date_col is not None:
-        df["Date"] = pd.to_datetime(df[date_col], errors="coerce").dt.date
-    if "Date" not in df.columns or df["Date"].isna().all():
-        df["Date"] = date_fallback
-    log(f"{log_prefix}Date → {date_col if date_col is not None else f'filename {date_fallback}'}")
-    return df
-
-# ── Field mappers
-def map_sales_summary(df):
-    fields = {
-        "Gross_Sales":[r"\bgross\s*sales\b"],
-        "Net_Sales":[r"\bnet\s*sales\b"],
-        "DD_Adjusted_No_Markup":[r"adjusted.*reportable.*(w/?o).*markup", r"adjusted.*w/o.*markup"],
-        "PA_Sales_Tax":[r"\bsales\s*tax\b"],
-        "DD_Discount":[r"\bdd\s*discount"],
-        "Guest_Count":[r"\bguest\s*count\b"],
-        "Avg_Check":[r"\bavg\s*check\b", r"\baverage\s*check\b"],
-        "Gift_Card_Sales":[r"\bgift\s*card\s*sales\b"],
-        "Void_Amount":[r"\bvoid\s*amount\b"],
-        "Refund":[r"\brefunds?\b"],
-        "Void_Qty":[r"\bvoid\s*qty\b", r"\bvoid\s*quantity\b"],
-        "Paid_IN":[r"\bpaid\s*in\b"],
-        "Paid_OUT":[r"\bpaid\s*out\b"],
-        "Cash_IN":[r"\bcash\s*in\b"],
-    }
-    keep = ["Store","PC_Number","Date"]
-    for out,pats in fields.items():
-        col = find_col(df, pats)
-        if col is not None: keep.append(col)
-    sub = df[keep].copy()
-    rename = {}
-    for out,pats in fields.items():
-        col = find_col(df, pats)
-        if col is not None: rename[col] = out
-    sub = sub.rename(columns=rename)
-    for k in fields.keys():
-        if k in sub.columns: sub[k] = sub[k].map(clean_num)
-    return sub
-
-def map_daypart(df):
-    fields = {
-        "Daypart":[r"^daypart$"],
-        "Net_Sales":[r"\bnet\s*sales\b|\bsales\b"],
-        "Percent_Sales":[r"(%|percent).*(sales)|% of sales"],
-        "Check_Count":[r"\bcheck\s*count\b|\bguest\s*count\b|\bchecks?\b"],
-        "Avg_Check":[r"\bavg\s*check\b|\baverage\s*check\b"],
-    }
-    keep = ["Store","PC_Number","Date"]
-    for out,pats in fields.items():
-        col = find_col(df, pats)
-        if col is not None: keep.append(col)
-    sub = df[keep].copy()
-    rename = {}
-    for out,pats in fields.items():
-        col = find_col(df, pats)
-        if col is not None: rename[col] = out
-    sub = sub.rename(columns=rename)
-    for k in ["Net_Sales","Percent_Sales","Check_Count","Avg_Check"]:
-        if k in sub.columns: sub[k] = sub[k].map(clean_num)
-    return sub
-
-def map_subcategory(df):
-    fields = {
-        "Subcategory":[r"\bsubcategory\b|\bsubcategory name\b"],
-        "Qty_Sold":[r"\bqty\b|\bquantity\b|\bqty sold\b"],
-        "Net_Sales":[r"\bnet\s*sales\b|\bsales\b"],
-        "Percent_Sales":[r"(%|percent).*(sales)|% sales|% of sales"],
-    }
-    keep = ["Store","PC_Number","Date"]
-    for out,pats in fields.items():
-        col = find_col(df, pats)
-        if col is not None: keep.append(col)
-    sub = df[keep].copy()
-    rename = {}
-    for out,pats in fields.items():
-        col = find_col(df, pats)
-        if col is not None: rename[col] = out
-    sub = sub.rename(columns=rename)
-    if "Subcategory" in sub.columns:
-        sub = sub[~sub["Subcategory"].astype(str).str.lower().str.startswith("total")]
-    for k in ["Qty_Sold","Net_Sales","Percent_Sales"]:
-        if k in sub.columns: sub[k] = sub[k].map(clean_num)
-    return sub
-
-def map_tender(df):
-    fields = {
-        "Tender_Type":[r"\btender\b|\bcode\b|\bdesc(ription)?\b"],
-        "Detail_Amount":[r"\bamount\b|\bdetail\s*amount\b|\bnet\b|\bsum of amount\b"],
-    }
-    keep = ["Store","PC_Number","Date"]
-    for out,pats in fields.items():
-        col = find_col(df, pats)
-        if col is not None: keep.append(col)
-    sub = df[keep].copy()
-    rename = {}
-    for out,pats in fields.items():
-        col = find_col(df, pats)
-        if col is not None: rename[col] = out
-    sub = sub.rename(columns=rename)
-    if "Detail_Amount" in sub.columns: sub["Detail_Amount"] = sub["Detail_Amount"].map(clean_num)
-    tender_map = {"4000059":"Discover","4000061":"Visa","4000060":"Mastercard","4000058":"Amex",
-                  "4000065":"GC Redeem","4000098":"Grub Hub","4000106":"Uber Eats","4000107":"Doordash"}
-    if "Tender_Type" in sub.columns:
-        sub["Tender_Type"] = sub["Tender_Type"].astype(str).str.strip().map(lambda x: tender_map.get(x.split()[0], x))
-    return sub
-
-def map_labor(df):
-    fields = {
-        "Labor_Position":[r"labor.*position|^position$|^labor position name$"],
-        "Reg_Hours":[r"\breg(ular)?\s*hours?\b|straight\s*hours?"],
-        "OT_Hours":[r"\bot\s*hours?\b|overtime\s*hours?"],
-        "Total_Hours":[r"\btotal\s*hours?\b"],
-        "Reg_Pay":[r"\breg(ular)?\s*pay\b|straight\s*pay\b"],
-        "OT_Pay":[r"\bot\s*pay\b|overtime\s*pay\b"],
-        "Total_Pay":[r"\btotal\s*pay\b"],
-        "Percent_Labor":[r"% labor|percent.*labor|% of labor"],
-    }
-    keep = ["Store","PC_Number","Date"]
-    for out,pats in fields.items():
-        col = find_col(df, pats)
-        if col is not None: keep.append(col)
-    sub = df[keep].copy()
-    rename = {}
-    for out,pats in fields.items():
-        col = find_col(df, pats)
-        if col is not None: rename[col] = out
-    sub = sub.rename(columns=rename)
-    for k in ["Reg_Hours","OT_Hours","Total_Hours","Reg_Pay","OT_Pay","Total_Pay","Percent_Labor"]:
-        if k in sub.columns: sub[k] = sub[k].map(clean_num)
-    return sub
-
-def map_sales_mix_detail(df):
+def unmerge_all_sheets_and_ffill_row2(in_path: Path, fill_row2: bool = True) -> BytesIO:
     """
-    Flexible mapper for item-level detail. We search for the most common headings
-    we’ve seen in POS exports.
+    Unmerge ALL sheets, copy top-left value into all cells of each merged range.
+    If fill_row2=True, forward-fill row 2 across on the FIRST sheet only
+    (this is how we assign Location Name to each column block).
     """
-    fields = {
-        # category/subcategory (optional, keep if present)
-        "Category":     [r"^category$", r"\bmajor\s*category\b", r"\bmenu\s*category\b"],
-        "Subcategory":  [r"\bsubcategory\b|\bminor\s*category\b|\bsub\s*category\b"],
-        # item identifiers
-        "Item":         [r"^item$", r"\bitem\s*name\b", r"\bmenu\s*item\b", r"\bproduct\s*name\b", r"^product$"],
-        # metrics
-        "Qty_Sold":     [r"\bqty\b|\bqty\s*sold\b|\bquantity\b|\bqty\s*sold\b"],
-        "Net_Sales":    [r"\bnet\s*sales\b|\bsales\b"],
-        "Percent_Sales":[r"(%|percent).*(sales)|% sales|% of sales"],
-        "Avg_Check":    [r"\bavg\s*check\b|\baverage\s*check\b"],  # sometimes present
-    }
-    keep = ["Store","PC_Number","Date"]
-    for out,pats in fields.items():
-        col = find_col(df, pats)
-        if col is not None: keep.append(col)
-    sub = df[keep].copy()
-    rename = {}
-    for out,pats in fields.items():
-        col = find_col(df, pats)
-        if col is not None: rename[col] = out
-    sub = sub.rename(columns=rename)
+    wb = load_workbook(in_path)
+    for ws in wb.worksheets:
+        for rng in list(ws.merged_cells.ranges):
+            tl = ws.cell(row=rng.min_row, column=rng.min_col).value
+            ws.unmerge_cells(str(rng))
+            for r in range(rng.min_row, rng.max_row + 1):
+                for c in range(rng.min_col, rng.max_col + 1):
+                    ws.cell(row=r, column=c).value = tl
+    if fill_row2 and wb.worksheets:
+        ws0 = wb.worksheets[0]
+        last = None
+        for c in range(1, ws0.max_column + 1):
+            v = ws0.cell(row=2, column=c).value
+            if v is None or str(v).strip() == "":
+                if last is not None:
+                    ws0.cell(row=2, column=c).value = last
+            else:
+                last = v
+    return _wb_to_buf(wb)
 
-    # Clean totals & numbers
-    if "Item" in sub.columns:
-        sub = sub[~sub["Item"].astype(str).str.lower().str.startswith("total")]
-    for k in ["Qty_Sold","Net_Sales","Percent_Sales","Avg_Check"]:
-        if k in sub.columns: sub[k] = sub[k].map(clean_num)
-    return sub
+def unmerge_all_sheets_and_fill_col_e(in_path: Path) -> BytesIO:
+    """
+    For Tender Type:
+    - Unmerge ALL sheets
+    - On FIRST sheet: if Column E (5) rows 1..71 blank => set 0
+    """
+    wb = load_workbook(in_path)
+    for ws in wb.worksheets:
+        for rng in list(ws.merged_cells.ranges):
+            tl = ws.cell(row=rng.min_row, column=rng.min_col).value
+            ws.unmerge_cells(str(rng))
+            for r in range(rng.min_row, rng.max_row + 1):
+                for c in range(rng.min_col, rng.max_col + 1):
+                    ws.cell(row=r, column=c).value = tl
+    if wb.worksheets:
+        ws0 = wb.worksheets[0]
+        max_row = min(71, ws0.max_row)
+        for r in range(1, max_row + 1):
+            cell = ws0.cell(row=r, column=5)
+            if cell.value is None or str(cell.value).strip() == "":
+                cell.value = 0
+    return _wb_to_buf(wb)
 
-MAPPER_BY_CATEGORY = {
-    "sales_summary":        map_sales_summary,
-    "sales_by_daypart":     map_daypart,
-    "sales_by_subcategory": map_subcategory,
-    "tender_type_metrics":  map_tender,
-    "labor_metrics":        map_labor,
-    "sales_by_order_type":  lambda df: df,          # not used by current inputs
-    "sales_mix_detail":     map_sales_mix_detail,   # <— NEW
-}
+# --------- DETECTORS (by filename) -------------
+def is_labor(name: str) -> bool: return "labor hours" in name
+def is_menu_mix(name: str) -> bool: return "menu mix metrics" in name
+def is_daypart(name: str) -> bool: return "sales by daypart" in name
+def is_subcat(name: str) -> bool: return "sales by subcategory" in name
+def is_tender(name: str) -> bool: return "tender type" in name or ("tender" in name and "type" in name)
+def is_sales_summary(name: str) -> bool: return "sales mix detail" in name
+def is_order_type(name: str) -> bool: return "menu mix metrics" in name
 
-# ── Template schema loader (*_copy.xlsx) or default
-def load_template_schema_for(raw_filename: str, category: str):
-    candidates = sorted(list(RAW_DIR.glob("*_copy.xlsx")) + list(OUT_DIR.glob("*_copy.xlsx")))
-    def first_sheet_cols(pp: Path):
-        try:
-            df = pd.read_excel(pp, sheet_name=0, nrows=0, engine="openpyxl")
-            return list(df.columns)
-        except Exception:
-            return []
-    for p in candidates:
-        nm = norm(p.name).lower()
-        if category == "sales_summary" and (("menu mix metrics" in nm) or ("sales mix metrics" in nm)): return first_sheet_cols(p)
-        if category == "sales_by_daypart" and ("sales by daypart" in nm): return first_sheet_cols(p)
-        if category == "sales_by_subcategory" and ("sales by subcategory" in nm): return first_sheet_cols(p)
-        if category == "tender_type_metrics" and ("tender type" in nm): return first_sheet_cols(p)
-        if category == "labor_metrics" and (("labor hours" in nm) or ("labor metrics" in nm)): return first_sheet_cols(p)
-        if category == "sales_by_order_type" and ("order type" in nm): return first_sheet_cols(p)
-        if category == "sales_mix_detail" and ("sales mix detail" in nm): return first_sheet_cols(p)
-    return DEFAULT_SCHEMAS.get(category, [])
+# ------------- CORE FLATTENER (shared) -------------
+def flatten_blocked_sheet(raw_path: Path, subheaders: list[str], label_regex: str, label_out: str, fill_row2=True) -> Path:
+    """
+    Generic flattener for the “horizontal blocks per location” pattern.
 
-# ── Per-file processing
-def process_one_input(path: Path):
-    name = path.name
-    name_low = norm(name).lower()
-    print("\n=== Processing:", name, "===")
+    Steps:
+      1) Unmerge all sheets + forward-fill row 2 (Location Name across columns)
+      2) Detect header row that contains label_regex (e.g. 'Labor Position Name' / 'Daypart' / 'Subcategory' / 'Revenue Center')
+      3) Row 2 is location names; for each block (contiguous subheaders) slice data, map store/pc, add date
+      4) Drop totals; numeric coercion on numeric-like columns
+    """
+    buf = unmerge_all_sheets_and_ffill_row2(raw_path, fill_row2=fill_row2)
+    df0 = pd.read_excel(buf, header=None, sheet_name=0)  # first sheet
 
-    category = category_from_filename(name_low)
-    print("Category detected:", category)
-    if not category:
-        log(f"SKIP (no category): {name}")
-        return False
+    # 2) Find header row by label_regex
+    hdr_row_idx = None
+    pattern = re.compile(label_regex, re.I)
+    for i in range(min(30, len(df0))):
+        row_texts = [norm(x) for x in df0.iloc[i].tolist()]
+        if any(pattern.search(x) for x in row_texts):
+            hdr_row_idx = i
+            break
+    if hdr_row_idx is None:
+        raise ValueError(f"Header row not found by /{label_regex}/.")
 
-    sheets = wb_sheetnames(path)
-    print("Sheets found:", sheets)
-    if not sheets:
-        log(f"ERROR (no sheets): {name}")
-        return False
+    # 3) Locations are in row 2 (Excel indexing) => index 1
+    loc_row = [norm(x) for x in df0.iloc[1].tolist()]
 
-    sheets_ordered = prefer_sheets_for_category(sheets, category)
-    extra_terms = []
-    if category == "sales_by_daypart": extra_terms = ["daypart"]
-    elif category == "tender_type_metrics": extra_terms = ["tender","location name"]
-    elif category == "labor_metrics": extra_terms = ["labor","position","hours"]
-    elif category == "sales_by_subcategory": extra_terms = ["subcategory","qty"]
-    elif category == "sales_summary": extra_terms = ["gross sales","net sales","revenue center"]
-    elif category == "sales_mix_detail": extra_terms = ["item","product","qty","net sales","category"]
+    headers = [norm(x) for x in df0.iloc[hdr_row_idx].tolist()]
+    df = df0.iloc[hdr_row_idx + 1:].copy()
+    df.columns = headers
 
-    df = None; chosen_sheet=None; header_row=None; hdr_score=None; df0_raw=None
-    for sheet in sheets_ordered:
-        try:
-            dfx, hdr_idx, sc, df0 = read_with_header_detection(path, sheet, extra_terms)
-            if dfx is not None and not dfx.dropna(how="all").empty:
-                df = dfx; df0_raw = df0; chosen_sheet=sheet; header_row=hdr_idx; hdr_score=sc
-                break
-        except Exception as e:
-            log(f"{name} sheet '{sheet}' read error: {e}")
-            continue
+    # Find label column index
+    label_col = None
+    for j, h in enumerate(headers):
+        if pattern.search(h or ""):
+            label_col = j; break
+    if label_col is None:
+        raise ValueError("Label column not found.")
 
-    print("Chosen sheet:", chosen_sheet, "| header_row:", header_row, "| header_score:", hdr_score)
-    if df is None:
-        log(f"ERROR (no readable data): {name}")
-        return False
+    # Find all block starts by matching contiguous subheaders
+    def headers_match(file_headers, expected_subheaders):
+        """Check if file headers match expected subheaders with flexible matching"""
+        if len(file_headers) != len(expected_subheaders):
+            return False
+        
+        # Create mapping from expected to actual patterns
+        mapping = {
+            "reg_hours": ["reg hours", "regular hours"],
+            "ot_hours": ["ot hours", "overtime hours"],
+            "total_hours": ["total hours"],
+            "reg_pay": ["reg pay", "regular pay"],
+            "ot_pay": ["ot pay", "overtime pay"], 
+            "total_pay": ["total pay"],
+            "percent_labor": ["% labor", "percent labor", "labor %"],
+            "net_sales": ["sales", "net sales"],
+            "percent_sales": ["% sales", "% of sales", "percent sales"],
+            "percent_guest": ["% guests", "percent guests"],
+            "check_count": ["guest count", "check count"],
+            "guests": ["guests", "guest count"],
+            "avg_check": ["avg check", "average check"],
+            "qty_sold": ["qty sold", "quantity sold"],
+            "daypart": ["daypart"],
+            "subcategory": ["subcategory", "subcategory name"],
+            "order_type": ["revenue center"]
+        }
+        
+        for i, expected in enumerate(expected_subheaders):
+            file_header = file_headers[i].lower()
+            patterns = mapping.get(expected.lower(), [expected.lower()])
+            if not any(file_header.startswith(p) or p in file_header for p in patterns):
+                return False
+        return True
+    
+    starts = []
+    L = len(subheaders) 
+    for j in range(label_col + 1, len(headers) - L + 2):
+        seq = [norm(x) for x in headers[j:j+L]]
+        if headers_match(seq, subheaders):
+            starts.append(j)
+    if not starts:
+        raise ValueError("No per-location blocks detected.")
 
-    print("Detected columns (first 15):", list(df.columns[:15]))
+    # 4) Build output
+    date_val = parse_first_date_from_filename(raw_path)
+    out_rows = []
+    for st in starts:
+        loc_name = loc_row[st] if st < len(loc_row) else ""
+        store, pc = map_store_pc(loc_name)
+        
+        # Select columns by index position to avoid duplicate column name issues
+        block_col_indices = [label_col] + list(range(st, st + L))
+        blk = df.iloc[:, block_col_indices].copy()
+        
+        # Set proper column names directly
+        new_columns = [label_out] + subheaders
+        blk.columns = new_columns
 
-    date_fb = filename_date_fallback(name)
-    df = ensure_pc_store(df, df_raw_for_scan=df0_raw, log_prefix=f"[{category}] ")
-    df = ensure_date(df, date_fb, log_prefix=f"[{category}] ")
+        blk.insert(0, "store", store)
+        blk.insert(1, "pc_number", str(pc) if pc else None)
+        blk.insert(2, "date", pd.to_datetime(date_val))
+        out_rows.append(blk)
 
-    mapper = MAPPER_BY_CATEGORY.get(category, lambda d: d)
-    mapped = mapper(df)
-    print("Mapped columns now:", list(mapped.columns))
+    out_df = pd.concat(out_rows, ignore_index=True)
+    out_df = drop_totals(out_df, label_out)
 
-    schema_cols = load_template_schema_for(name, category)
-    print("Template columns (target order):", schema_cols)
-    if not schema_cols:
-        log(f"{name} WARN: no template schema found; using defaults for {category}")
-        schema_cols = DEFAULT_SCHEMAS[category]
-
-    for c in schema_cols:
-        if c not in mapped.columns:
-            mapped[c] = pd.NA
-    mapped = mapped[schema_cols].copy()
-
-    # light numeric coercion by name hints
-    num_hints = {"gross","net","avg","check","qty","quantity","tax","discount","amount","percent","guest","pay","hours","sales"}
-    for c in mapped.columns:
+    # numeric coercion for numeric-ish columns
+    for c in out_df.columns:
         lc = c.lower()
-        if any(k in lc for k in num_hints):
-            mapped[c] = mapped[c].map(clean_num)
+        if any(x in lc for x in ["hours","pay","net","%","qty","check","sales","amount","guests"]):
+            if c not in {"store","pc_number","date",label_out}:
+                out_df[c] = out_df[c].map(clean_num)
 
-    out_name = name[:-5] + "_copy.xlsx" if name.lower().endswith(".xlsx") else name + "_copy.xlsx"
-    out_path = OUT_DIR / out_name
+    # ordering
+    metric_cols = [c for c in out_df.columns if c not in {"store","pc_number","date",label_out}]
+    out_df = out_df[["store","pc_number","date",label_out] + metric_cols]
+
+    out_path = OUT_DIR / (raw_path.stem + "_copy.xlsx")
     with pd.ExcelWriter(out_path) as xlw:
-        mapped.to_excel(excel_writer=xlw, sheet_name="Sheet1", index=False)
+        out_df.to_excel(xlw, index=False, sheet_name="Sheet1")
+    return out_path
 
-    log(f"OK: {name} → sheet='{chosen_sheet}' hdr_row={header_row} hdr_score={hdr_score} → {out_path.name} (rows={len(mapped)}, cols={len(mapped.columns)})")
-    print(f"WROTE: {out_path.name}  rows={len(mapped)}  cols={len(mapped.columns)}")
-    return True
+# --------- Transformers using the shared core ---------
+def flatten_labor_file(raw_path: Path) -> Path:
+    subheaders = ["Reg Hours","OT Hours","Total Hours","Reg Pay","OT Pay","Total Pay","% Labor"]
+    out_path = flatten_blocked_sheet(
+        raw_path=raw_path,
+        subheaders=subheaders,
+        label_regex=r"labor\s*position\s*name",
+        label_out="labor_position",
+        fill_row2=True
+    )
+    
+    # Post-process the labor file to match desired format
+    df = pd.read_excel(out_path)
+    
+    # Filter out total rows and empty store/pc_number rows
+    df = df[
+        (df['store'].notna()) & 
+        (df['store'] != '') & 
+        (~df['labor_position'].astype(str).str.lower().str.startswith('total'))
+    ].copy()
+    
+    # Format date as MM/DD/YY
+    df['date'] = pd.to_datetime(df['date']).dt.strftime('%m/%d/%y')
+    
+    # Keep pc_number as string (remove decimal point for integers)
+    df['pc_number'] = df['pc_number'].fillna(0).astype(int).astype(str)
+    
+    # Save back to same path
+    with pd.ExcelWriter(out_path) as xlw:
+        df.to_excel(xlw, index=False, sheet_name="Sheet1")
+    
+    return out_path
+
+def flatten_menu_mix_file(raw_path: Path) -> Path:
+    """
+    Handle Menu Mix Metrics files for sales_by_order_type table.
+    This uses the blocked sheet format.
+    """
+    subheaders = ["net_sales","percent_sales","guests","percent_guest","avg_check"]
+    return flatten_blocked_sheet(
+        raw_path=raw_path,
+        subheaders=subheaders,
+        label_regex=r"revenue\s*center",
+        label_out="order_type",
+        fill_row2=True
+    )
+
+def flatten_sales_by_daypart_file(raw_path: Path) -> Path:
+    # Updated subheaders based on actual file structure (4 columns per store)
+    subheaders = ["net_sales","percent_sales","check_count","avg_check"]
+    return flatten_blocked_sheet(
+        raw_path=raw_path,
+        subheaders=subheaders,
+        label_regex=r"daypart",
+        label_out="daypart",
+        fill_row2=True
+    )
+
+def flatten_sales_by_subcategory_file(raw_path: Path) -> Path:
+    # Updated subheaders based on actual file structure
+    subheaders = ["qty_sold","net_sales","percent_sales"]
+    return flatten_blocked_sheet(
+        raw_path=raw_path,
+        subheaders=subheaders,
+        label_regex=r"subcategory.*name",
+        label_out="subcategory",
+        fill_row2=True
+    )
+
+# --------- Sales_summary (transpose + special output name) ---------
+def build_sales_summary_outname(raw_path: Path) -> Path:
+    name = raw_path.name
+    m = re.match(r"^(.*?v2_)(.*?)(\s+\d{4}-\d{2}-\d{2}\s+to\s+\d{4}-\d{2}-\d{2}_\d{8}T\d{4})(\.xlsx)$", name, flags=re.I)
+    if not m:
+        newname = name.replace("Sales Mix Metrics", "Sales_summary")
+        newname = newname.replace("Menu Mix Metrics", "Sales_summary")
+        newname = re.sub(r"\.xlsx$", "_copy.xlsx", newname)
+        return OUT_DIR / newname
+    prefix, _cat, daterange, _ext = m.groups()
+    return OUT_DIR / f"{prefix}Sales_summary{daterange}_copy.xlsx"
+
+def flatten_sales_summary_horizontal(raw_path: Path) -> Path:
+    """
+    Handle Sales Mix Detail files with horizontal structure: locations as columns, metrics as rows.
+    This transforms it into the sales_summary table format.
+    """
+    df = pd.read_excel(raw_path, header=None, sheet_name=0)
+    
+    # Row 1 contains location names (columns 1-7)
+    locations = [norm(str(x)) for x in df.iloc[1].tolist()[1:] if norm(str(x)) != "" and str(x) != "nan"]
+    
+    # Create metric mapping from file rows to database columns
+    metric_mapping = {
+        "net sales": "net_sales",
+        "dunkin gross sales": "gross_sales", 
+        "dd adjusted reportable sales": "dd_adjusted_no_markup",
+        "sales tax": "pa_sales_tax",
+        "discounts": "dd_discount",
+        "guest count": "guest_count",
+        "avg check": "avg_check",
+        "gift card sales": "gift_card_sales",
+        "void amount": "void_amount",
+        "refunds": "refund",
+        "void transactions": "void_qty",
+        "cash in": "cash_in",
+        "paid in": "paid_in",
+        "paid out": "paid_out"
+    }
+    
+    # Extract data for each metric
+    date_val = parse_first_date_from_filename(raw_path)
+    sales_summary_rows = []
+    
+    # Process each location (column)
+    for i, location in enumerate(locations):
+        store, pc = map_store_pc(location)
+        if not store or not pc:
+            continue
+            
+        row_data = {
+            "store": store,
+            "pc_number": str(pc),
+            "date": pd.to_datetime(date_val),
+            "gross_sales": pd.NA,
+            "net_sales": pd.NA,
+            "dd_adjusted_no_markup": pd.NA,
+            "pa_sales_tax": pd.NA,
+            "dd_discount": pd.NA,
+            "guest_count": pd.NA,
+            "avg_check": pd.NA,
+            "gift_card_sales": pd.NA,
+            "void_amount": pd.NA,
+            "refund": pd.NA,
+            "void_qty": pd.NA,
+            "cash_in": pd.NA,
+            "paid_in": pd.NA,
+            "paid_out": pd.NA
+        }
+        
+        # Extract values for each metric from the corresponding row
+        for row_idx in range(2, len(df)):  # Skip header rows 0-1
+            metric_name = norm(str(df.iloc[row_idx, 0])).lower()
+            
+            # Find matching metric in mapping
+            db_column = None
+            for file_metric, db_col in metric_mapping.items():
+                if metric_name.startswith(file_metric):
+                    db_column = db_col
+                    break
+                    
+            if db_column and i + 1 < df.shape[1]:  # +1 because locations start at column 1
+                value_str = str(df.iloc[row_idx, i + 1])
+                if value_str.lower() not in ["nan", ""]:
+                    try:
+                        if db_column in ["guest_count", "void_qty"]:
+                            row_data[db_column] = int(float(value_str))
+                        else:
+                            row_data[db_column] = float(value_str)
+                    except (ValueError, TypeError):
+                        pass  # Keep as pd.NA
+        
+        sales_summary_rows.append(row_data)
+    
+    result_df = pd.DataFrame(sales_summary_rows)
+    
+    out_path = build_sales_summary_outname(raw_path)
+    with pd.ExcelWriter(out_path) as xlw:
+        result_df.to_excel(xlw, index=False, sheet_name="Sheet1")
+    return out_path
+
+# --------- Tender Type (unmerge + column E rule + mapping) ---------
+TENDER_MAP = {
+    "credit card - amex": "Amex",
+    "credit card - discover": "Discover",
+    "credit card - mastercard": "Mastercard",
+    "credit card - visa": "Visa",
+    "visa - kiosk": "Visa-Kiosk",
+    "gift card redeem": "GC Redeem",
+    "clover go": "Clover Go",
+    "delivery: doordash": "Doordash",
+    "delivery: uber eats": "Uber Eats",
+    "grub hub": "Grub Hub",
+}
+def map_tender_label(s: str) -> str:
+    k = norm(s).lower()
+    for pat, out in TENDER_MAP.items():
+        if k == pat or pat in k:
+            return out
+    return norm(s)
+
+def flatten_tender_type_file(raw_path: Path) -> Path:
+    """
+    Handle Tender Type files with horizontal structure: locations as columns, tender types as rows.
+    Structure:
+    Row 0: "Sum of Amount", "nan", "LOCATION NAME", ...
+    Row 1: "Sales Mix Tran Type", "GL Description", "301290 - 2820 Paxton St", "343939 - 807 E Main St", ...
+    Row 2+: "Category", "Tender Type", amount1, amount2, amount3, ...
+    """
+    buf = unmerge_all_sheets_and_fill_col_e(raw_path)
+    df = pd.read_excel(buf, header=None, sheet_name=0)
+    
+    # For this format, row 1 contains location names starting from column 2
+    location_row = df.iloc[1].tolist()
+    locations = [norm(str(x)) for x in location_row[2:] if norm(str(x)) != "" and str(x) != "nan"]
+    
+    # Remove "Total" column if it exists
+    if locations and locations[-1].lower() == "total":
+        locations = locations[:-1]
+    
+    if not locations:
+        raise ValueError("TENDER: No locations found in header row")
+    
+    # Build output rows
+    date_val = parse_first_date_from_filename(raw_path)
+    out_rows = []
+    
+    for i in range(2, len(df)):  # Start from row 2 (data rows)
+        row_data = df.iloc[i].tolist()
+        category = norm(str(row_data[0])) if len(row_data) > 0 else ""
+        tender_type = norm(str(row_data[1])) if len(row_data) > 1 else ""
+        
+        # Skip if both category and tender_type are empty/nan, or if it's a total row
+        if (category.lower() in ["nan", ""] and tender_type.lower() in ["nan", ""]) or \
+           category.lower().startswith("total") or tender_type.lower().startswith("total"):
+            continue
+            
+        # Use tender_type if available, otherwise use category
+        tender_label = tender_type if tender_type and tender_type.lower() != "nan" else category
+        if not tender_label or tender_label.lower() in ["nan", ""]:
+            continue
+            
+        # Map the tender label
+        tender_label = map_tender_label(tender_label)
+        
+        # Process amounts for each location
+        for j, location in enumerate(locations):
+            amount_col_idx = j + 2  # Amounts start at column 2
+            if amount_col_idx < len(row_data):
+                amount_str = str(row_data[amount_col_idx])
+                if amount_str.lower() not in ["nan", ""]:
+                    amount = clean_num(amount_str)
+                    if pd.notna(amount) and amount != 0:  # Only include non-zero amounts
+                        store, pc = map_store_pc(location)
+                        out_rows.append({
+                            "store": store,
+                            "pc_number": str(pc) if pc else None, 
+                            "date": pd.to_datetime(date_val),
+                            "tender_type": tender_label,
+                            "detail_amount": amount
+                        })
+    
+    if not out_rows:
+        raise ValueError("TENDER: No valid data rows found")
+        
+    out_df = pd.DataFrame(out_rows)
+    
+    out_path = OUT_DIR / (raw_path.stem + "_copy.xlsx")
+    with pd.ExcelWriter(out_path) as xlw:
+        out_df.to_excel(xlw, index=False, sheet_name="Sheet1")
+    return out_path
+
+# ------------- Dispatcher -------------
+def process_one_input(path: Path) -> bool:
+    name_low = norm(path.name).lower()
+    log(f"\n=== Processing: {path.name} ===")
+    try:
+        if is_labor(name_low):
+            outp = flatten_labor_file(path); log(f"OK (labor) → {outp.name}"); return True
+        if is_order_type(name_low):
+            outp = flatten_menu_mix_file(path); log(f"OK (order_type) → {outp.name}"); return True
+        if is_daypart(name_low):
+            outp = flatten_sales_by_daypart_file(path); log(f"OK (daypart) → {outp.name}"); return True
+        if is_subcat(name_low):
+            outp = flatten_sales_by_subcategory_file(path); log(f"OK (subcategory) → {outp.name}"); return True
+        if is_tender(name_low):
+            outp = flatten_tender_type_file(path); log(f"OK (tender) → {outp.name}"); return True
+        if is_sales_summary(name_low):
+            outp = flatten_sales_summary_horizontal(path); log(f"OK (sales_summary) → {outp.name}"); return True
+
+        log("SKIP: No matching transformer for this file.")
+        return False
+    except Exception as e:
+        log(f"ERROR: {e}")
+        return False
 
 def main():
-    files = []
-    for p in sorted(list(RAW_DIR.glob("*.xls")) + list(RAW_DIR.glob("*.xlsx"))):
-        nm = norm(p.name).lower()
-        if "consolidated dunkin sales summary v2" in nm:
-            files.append(p)
-
+    files = [p for p in sorted(RAW_DIR.glob("*.xlsx")) + sorted(RAW_DIR.glob("*.xls"))
+             if not p.name.endswith("_copy.xlsx")]
     if not files:
-        msg = f"No consolidated files found in {RAW_DIR}"
-        log(msg); print(msg); return
-
-    print(f"Found {len(files)} consolidated files in {RAW_DIR}")
-    ok, fail = 0, 0
-    for path in files:
-        try:
-            if process_one_input(path): ok += 1
-            else: fail += 1
-        except Exception as e:
-            log(f"FATAL {path.name}: {e}"); fail += 1
-
-    print(f"Done. Wrote {ok} compiled file(s). Failed: {fail}.")
-    print(f"Log: {LOG_FILE}")
+        log(f"No raw Excel files in {RAW_DIR}")
+        return
+    ok = fail = 0
+    for f in files:
+        if process_one_input(f): ok += 1
+        else: fail += 1
+    log(f"\nDone. Success: {ok}  Failed: {fail}")
 
 if __name__ == "__main__":
     main()
