@@ -1,0 +1,52 @@
+📋 DAILY DUNKIN DATA PROCESSING CHECKLIST
+===============================================
+
+Date: _______________  ✅ Completed
+
+## PREPARATION
+□ Open terminal/command prompt
+□ Navigate to Dunkin-Sales-Summary folder
+□ Check internet connection for Supabase upload
+
+## DOWNLOAD (Manual - 3-5 minutes)
+□ Go to Dunkin data source
+□ Download for date: _______________
+□ Save all 6 files to /data folder:
+   □ Labor Hours report
+   □ Sales by Daypart report  
+   □ Sales by Subcategory report
+   □ Tender Type report
+   □ Sales Mix Detail report (Sales Summary)
+   □ Menu Mix Metrics report (Order Type)
+
+## PROCESS (Automated - 2-5 minutes)
+□ Run: `python3 scripts/batch_processor.py`
+□ Select option 1 (single date) or 2 (batch)
+□ Enter date: _______________
+□ Wait for compilation ✅
+□ Wait for upload ✅  
+□ Choose cleanup option (y/n)
+
+## VERIFY
+□ Check "Upload successful" message
+□ No error messages displayed
+□ Optional: Check database status
+
+## NEXT DATE
+□ Move to next date: _______________
+□ Repeat process
+
+## NOTES/ISSUES
+_________________________________
+_________________________________
+_________________________________
+
+## WEEKLY PROGRESS TRACKER
+
+Week 1 (Sep 13-19): □□□□□□□
+Week 2 (Sep 20-26): □□□□□□□  
+Week 3 (Sep 27-Oct 3): □□□□□□□
+Week 4 (Oct 4-10): □□□□□□□
+Week 5 (Oct 11-12): □□
+
+Total: ___/30 days completed

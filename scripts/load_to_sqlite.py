@@ -85,39 +85,38 @@ def get_all_excel_files():
     return excel_files
 
 def load_to_sqlite():
-    excel_files = get_all_excel_files()
-    if not excel_files:
+    excel_file = get_latest_excel_file()
+    if not excel_file:
         print("No compiled Excel files found.")
         return
 
-    print(f"Loading {len(excel_files)} files to SQLite...")
+    print(f"Loading latest file to SQLite: {excel_file.name}")
     conn = sqlite3.connect(DB_PATH)
 
     try:
-        for excel_path in excel_files:
-            print(f"Loading from: {excel_path.name}")
-            
-            # Detect file type
-            file_type = detect_file_type(excel_path.name)
-            if not file_type:
-                print(f"   ⚠️  Unknown file type, skipping...")
-                continue
-            
-            config = file_type_mapping[file_type]
-            table_name = config["table"]
-            
-            # Read the single sheet file
-            df = pd.read_excel(excel_path)
+        print(f"Loading from: {excel_file.name}")
+        
+        # Detect file type
+        file_type = detect_file_type(excel_file.name)
+        if not file_type:
+            print(f"   ⚠️  Unknown file type, cannot load")
+            return
+        
+        config = file_type_mapping[file_type]
+        table_name = config["table"]
+        
+        # Read the single sheet file
+        df = pd.read_excel(excel_file)
 
-            # Convert date column to datetime
-            if 'date' in df.columns:
-                df['date'] = pd.to_datetime(df['date'], errors='coerce').dt.date
+        # Convert date column to datetime
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'], errors='coerce').dt.date
 
-            print(f"Inserting {len(df)} rows into table '{table_name}'...")
-            df.to_sql(table_name, conn, if_exists="append", index=False)
+        print(f"Inserting {len(df)} rows into table '{table_name}'...")
+        df.to_sql(table_name, conn, if_exists="append", index=False)
 
         conn.commit()
-        print("✅ All files successfully loaded into SQLite.")
+        print("✅ File successfully loaded into SQLite.")
         
     except Exception as e:
         print(f"Error during loading: {e}")
@@ -125,16 +124,15 @@ def load_to_sqlite():
         conn.close()
 
     if DELETE_AFTER_LOAD:
-        for excel_path in excel_files:
-            os.remove(excel_path)
-            print(f"Deleted: {excel_path.name}")
+        os.remove(excel_file)
+        print(f"Deleted: {excel_file.name}")
 def load_to_supabase():
-    excel_files = get_all_excel_files()
-    if not excel_files:
+    excel_file = get_latest_excel_file()
+    if not excel_file:
         print("No compiled Excel files found.")
         return
 
-    print(f"Found {len(excel_files)} compiled files to upload to Supabase")
+    print(f"Found latest compiled file to upload to Supabase: {excel_file.name}")
     try:
         conn = supabase_db.get_supabase_connection()
     except Exception as e:
@@ -145,41 +143,40 @@ def load_to_supabase():
     failed_uploads = 0
     
     try:
-        for file_idx, excel_path in enumerate(excel_files, 1):
-            print(f"\n📁 [{file_idx}/{len(excel_files)}] Loading: {excel_path.name}")
+        print(f"\n📁 Loading: {excel_file.name}")
+        
+        # Detect file type
+        file_type = detect_file_type(excel_file.name)
+        if not file_type:
+            print(f"   ⚠️  Unknown file type, cannot upload")
+            failed_uploads += 1
+            return
             
-            # Detect file type
-            file_type = detect_file_type(excel_path.name)
-            if not file_type:
-                print(f"   ⚠️  Unknown file type, skipping...")
+        config = file_type_mapping[file_type]
+        table_name = config["table"]
+        
+        print(f"   📊 Detected type: {file_type} -> {table_name}")
+        
+        try:
+            # Read the Excel file (single sheet)
+            df = pd.read_excel(excel_file)
+            
+            print(f"   📈 Read {len(df)} rows, {len(df.columns)} columns")
+            
+            # Convert date column to proper format
+            if 'date' in df.columns:
+                df['date'] = pd.to_datetime(df['date'], format='%m/%d/%y', errors='coerce').dt.date
+            
+            # Validate columns (flexible validation)
+            expected_cols = set(config["columns"])
+            actual_cols = set(df.columns)
+            
+            # Use columns that exist in both expected and actual
+            valid_cols = list(expected_cols & actual_cols)
+            if not valid_cols:
+                print(f"   ❌ No matching columns found")
                 failed_uploads += 1
-                continue
-            
-            config = file_type_mapping[file_type]
-            table_name = config["table"]
-            
-            print(f"   📊 Detected type: {file_type} -> {table_name}")
-            
-            try:
-                # Read the Excel file (single sheet)
-                df = pd.read_excel(excel_path)
-                
-                print(f"   📈 Read {len(df)} rows, {len(df.columns)} columns")
-                
-                # Convert date column to proper format
-                if 'date' in df.columns:
-                    df['date'] = pd.to_datetime(df['date'], format='%m/%d/%y', errors='coerce').dt.date
-                
-                # Validate columns (flexible validation)
-                expected_cols = set(config["columns"])
-                actual_cols = set(df.columns)
-                
-                # Use columns that exist in both expected and actual
-                valid_cols = list(expected_cols & actual_cols)
-                if not valid_cols:
-                    print(f"   ❌ No matching columns found")
-                    failed_uploads += 1
-                    continue
+                return
                 
                 df_upload = df[valid_cols].copy()
                 
@@ -217,46 +214,41 @@ def load_to_supabase():
                 cols = ','.join(df_upload.columns)
                 vals_placeholder = ','.join(['%s'] * len(df_upload.columns))
                 
-                # Check if data for this date already exists in the table
-                check_query = f"SELECT COUNT(*) FROM {table_name} WHERE date = %s"
-                cur.execute(check_query, (df_upload['date'].iloc[0],))
-                existing_count = cur.fetchone()[0]
-                
-                if existing_count > 0:
-                    print(f"   ⚠️  Data for this date already exists ({existing_count} rows), skipping to prevent duplicates")
-                    continue
-                
-                # Use simple INSERT since we've checked for existing data
-                insert_query = f"""
-                    INSERT INTO {table_name} ({cols}) 
-                    VALUES ({vals_placeholder})
-                """
-                
-                data = df_upload.values.tolist()
                 with conn.cursor() as cur:
+                    # Use INSERT ... ON CONFLICT DO NOTHING to handle duplicates properly
+                    # This respects the unique constraints we've set up for each table
+                    insert_query = f"""
+                        INSERT INTO {table_name} ({cols}) 
+                        VALUES ({vals_placeholder})
+                        ON CONFLICT DO NOTHING
+                    """
+                    
+                    data = df_upload.values.tolist()
                     try:
                         cur.executemany(insert_query, data)
                         rows_inserted = cur.rowcount
+                        
+                        conn.commit()
+                        print(f"   ✅ Processed {len(data)} rows, inserted {rows_inserted} new rows (duplicates automatically skipped)")
+                        successful_uploads += 1
+                        
                     except Exception as sql_error:
                         print(f"   🔍 SQL Error details:")
                         print(f"      Query: {insert_query}")
                         print(f"      Columns: {list(df_upload.columns)}")
                         print(f"      Sample data: {data[0] if data else 'No data'}")
+                        conn.rollback()
                         raise sql_error
-                
-                conn.commit()
-                print(f"   ✅ Successfully inserted {rows_inserted} rows (duplicates skipped)")
-                successful_uploads += 1
-                
-            except Exception as e:
-                print(f"   ❌ Error processing file: {e}")
-                failed_uploads += 1
-                conn.rollback()
+                        
+        except Exception as e:
+            print(f"   ❌ Error processing file: {e}")
+            failed_uploads += 1
+            conn.rollback()
         
         print(f"\n📊 Upload Summary:")
         print(f"   ✅ Successful: {successful_uploads}")
         print(f"   ❌ Failed: {failed_uploads}")
-        print(f"   📁 Total processed: {len(excel_files)}")
+        print(f"   📁 File processed: {excel_file.name}")
         
     except Exception as e:
         print(f"Error during Supabase loading: {e}")
