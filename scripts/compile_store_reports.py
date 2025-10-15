@@ -270,7 +270,7 @@ def flatten_labor_file(raw_path: Path) -> Path:
         raw_path=raw_path,
         subheaders=subheaders,
         label_regex=r"labor\s*position\s*name",
-        label_out="labour_position",
+        label_out="labor_position",
         fill_row2=True
     )
     
@@ -281,7 +281,7 @@ def flatten_labor_file(raw_path: Path) -> Path:
     df = df[
         (df['store'].notna()) & 
         (df['store'] != '') & 
-        (~df['labour_position'].astype(str).str.lower().str.startswith('total'))
+        (~df['labor_position'].astype(str).str.lower().str.startswith('total'))
     ].copy()
     
     # Format date as MM/DD/YY
