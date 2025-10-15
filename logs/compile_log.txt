@@ -168,3 +168,22 @@ OK: 20251012_Consolidated Dunkin Sales Summary v2_Sales Mix Detail 2025-10-12 t
 [tender_type_metrics] PC/Store present? PC_Number=True | Store=True
 [tender_type_metrics] Date → filename 2025-10-12
 OK: 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Tender Type 2025-10-12 to 20' hdr_row=0 hdr_score=2 → 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=15, cols=5)
+[labor_metrics] PC/Store present? PC_Number=True | Store=True
+[labor_metrics] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Labor Hours 2025-10-12 to 20' hdr_row=0 hdr_score=56 → 20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=8, cols=11)
+[sales_summary] PC/Store present? PC_Number=True | Store=True
+[sales_summary] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Menu Mix Metrics 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Menu Mix Metrics 2025-10-12 ' hdr_row=0 hdr_score=35 → 20251012_Consolidated Dunkin Sales Summary v2_Menu Mix Metrics 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=14, cols=17)
+[sales_mix_detail] PC/Store present? PC_Number=True | Store=True
+[sales_mix_detail] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Sales Mix Detail 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Sales Mix Detail 2025-10-12 ' hdr_row=0 hdr_score=7 → 20251012_Consolidated Dunkin Sales Summary v2_Sales Mix Detail 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=34, cols=10)
+[sales_by_daypart] PC/Store present? PC_Number=True | Store=True
+[sales_by_daypart] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Sales by Daypart 2025-10-12 ' hdr_row=0 hdr_score=28 → 20251012_Consolidated Dunkin Sales Summary v2_Sales by Daypart 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=8, cols=8)
+[sales_by_subcategory] PC/Store present? PC_Number=True | Store=True
+[sales_by_subcategory] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Sales by Subcategory 2025-10' hdr_row=2 hdr_score=22 → 20251012_Consolidated Dunkin Sales Summary v2_Sales by Subcategory 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=31, cols=7)
+[tender_type_metrics] PC/Store present? PC_Number=True | Store=True
+[tender_type_metrics] Date → filename 2025-10-12
+OK: 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800.xlsx → sheet='Tender Type 2025-10-12 to 20' hdr_row=0 hdr_score=9 → 20251012_Consolidated Dunkin Sales Summary v2_Tender Type 2025-10-12 to 2025-10-12_20251013T0800_copy.xlsx (rows=15, cols=5)
+FATAL ~$20251012_Consolidated Dunkin Sales Summary v2_Labor Hours 2025-10-12 to 2025-10-12_20251013T0800.xlsx: File is not a zip file
