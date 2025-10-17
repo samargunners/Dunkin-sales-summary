@@ -127,12 +127,15 @@ def load_to_sqlite():
         os.remove(excel_file)
         print(f"Deleted: {excel_file.name}")
 def load_to_supabase():
-    excel_file = get_latest_excel_file()
-    if not excel_file:
+    excel_files = get_all_excel_files()
+    if not excel_files:
         print("No compiled Excel files found.")
         return
 
-    print(f"Found latest compiled file to upload to Supabase: {excel_file.name}")
+    print(f"Found {len(excel_files)} compiled files to upload to Supabase:")
+    for i, file in enumerate(excel_files, 1):
+        print(f"  {i}. {file.name}")
+    
     try:
         conn = supabase_db.get_supabase_connection()
     except Exception as e:
@@ -142,26 +145,26 @@ def load_to_supabase():
     successful_uploads = 0
     failed_uploads = 0
     
-    try:
-        print(f"\n📁 Loading: {excel_file.name}")
-        
-        # Detect file type
-        file_type = detect_file_type(excel_file.name)
-        if not file_type:
-            print(f"   ⚠️  Unknown file type, cannot upload")
-            failed_uploads += 1
-            return
-            
-        config = file_type_mapping[file_type]
-        table_name = config["table"]
-        
-        print(f"   📊 Detected type: {file_type} -> {table_name}")
-        
+    for excel_file in excel_files:
         try:
+            print(f"\n[FILE] Loading: {excel_file.name}")
+            
+            # Detect file type
+            file_type = detect_file_type(excel_file.name)
+            if not file_type:
+                print(f"   [WARNING] Unknown file type, cannot upload")
+                failed_uploads += 1
+                continue
+                
+            config = file_type_mapping[file_type]
+            table_name = config["table"]
+            
+            print(f"   [INFO] Detected type: {file_type} -> {table_name}")
+            
             # Read the Excel file (single sheet)
             df = pd.read_excel(excel_file)
             
-            print(f"   📈 Read {len(df)} rows, {len(df.columns)} columns")
+            print(f"   [DATA] Read {len(df)} rows, {len(df.columns)} columns")
             
             # Convert date column to proper format
             if 'date' in df.columns:
@@ -174,86 +177,105 @@ def load_to_supabase():
             # Use columns that exist in both expected and actual
             valid_cols = list(expected_cols & actual_cols)
             if not valid_cols:
-                print(f"   ❌ No matching columns found")
+                print(f"   [ERROR] No matching columns found")
                 failed_uploads += 1
-                return
+                continue
                 
-                df_upload = df[valid_cols].copy()
+            df_upload = df[valid_cols].copy()
+            
+            # Apply column mapping if specified (for labor file)
+            if 'column_mapping' in config:
+                column_mapping = config['column_mapping']
+                df_upload = df_upload.rename(columns=column_mapping)
+            
+            # Convert pc_number to string to avoid integer overflow issues
+            if 'pc_number' in df_upload.columns:
+                df_upload['pc_number'] = df_upload['pc_number'].astype(str)
+            
+            # Handle NaN values properly based on data type
+            for col in df_upload.columns:
+                if df_upload[col].dtype in ['float64', 'int64']:
+                    # For numeric columns, fill NaN with 0
+                    df_upload[col] = df_upload[col].fillna(0)
+                else:
+                    # For text columns, fill NaN with empty string
+                    df_upload[col] = df_upload[col].fillna('')
+            
+            # Remove rows where essential columns (store, pc_number, date) are missing
+            essential_cols = ['store', 'pc_number', 'date']
+            for col in essential_cols:
+                if col in df_upload.columns:
+                    df_upload = df_upload[
+                        (df_upload[col].notna()) & 
+                        (df_upload[col] != '') & 
+                        (df_upload[col] != '0')
+                    ]
+            
+            print(f"   [UPLOAD] Uploading {len(df_upload)} rows to {table_name}")
+            
+            # Build insert query with conflict handling
+            cols = ','.join(df_upload.columns)
+            vals_placeholder = ','.join(['%s'] * len(df_upload.columns))
+            
+            with conn.cursor() as cur:
+                # Use INSERT ... ON CONFLICT DO NOTHING to handle duplicates properly
+                # This respects the unique constraints we've set up for each table
+                insert_query = f"""
+                    INSERT INTO {table_name} ({cols}) 
+                    VALUES ({vals_placeholder})
+                    ON CONFLICT DO NOTHING
+                """
                 
-                # Apply column mapping if specified (for labor file)
-                if 'column_mapping' in config:
-                    column_mapping = config['column_mapping']
-                    df_upload = df_upload.rename(columns=column_mapping)
+                data = df_upload.values.tolist()
                 
-                # Convert pc_number to string to avoid integer overflow issues
-                if 'pc_number' in df_upload.columns:
-                    df_upload['pc_number'] = df_upload['pc_number'].astype(str)
+                # Process in smaller batches to avoid timeouts
+                batch_size = 50
+                total_inserted = 0
                 
-                # Handle NaN values properly based on data type
-                for col in df_upload.columns:
-                    if df_upload[col].dtype in ['float64', 'int64']:
-                        # For numeric columns, fill NaN with 0
-                        df_upload[col] = df_upload[col].fillna(0)
-                    else:
-                        # For text columns, fill NaN with empty string
-                        df_upload[col] = df_upload[col].fillna('')
-                
-                # Remove rows where essential columns (store, pc_number, date) are missing
-                essential_cols = ['store', 'pc_number', 'date']
-                for col in essential_cols:
-                    if col in df_upload.columns:
-                        df_upload = df_upload[
-                            (df_upload[col].notna()) & 
-                            (df_upload[col] != '') & 
-                            (df_upload[col] != '0')
-                        ]
-                
-                print(f"   � Uploading {len(df_upload)} rows to {table_name}")
-                
-                # Build insert query with conflict handling
-                cols = ','.join(df_upload.columns)
-                vals_placeholder = ','.join(['%s'] * len(df_upload.columns))
-                
-                with conn.cursor() as cur:
-                    # Use INSERT ... ON CONFLICT DO NOTHING to handle duplicates properly
-                    # This respects the unique constraints we've set up for each table
-                    insert_query = f"""
-                        INSERT INTO {table_name} ({cols}) 
-                        VALUES ({vals_placeholder})
-                        ON CONFLICT DO NOTHING
-                    """
+                for i in range(0, len(data), batch_size):
+                    batch = data[i:i+batch_size]
+                    batch_num = i // batch_size + 1
+                    total_batches = (len(data) + batch_size - 1) // batch_size
                     
-                    data = df_upload.values.tolist()
+                    print(f"      Batch {batch_num}/{total_batches} ({len(batch)} rows)...", end='')
+                    
                     try:
-                        cur.executemany(insert_query, data)
-                        rows_inserted = cur.rowcount
+                        cur.executemany(insert_query, batch)
+                        batch_inserted = cur.rowcount
+                        total_inserted += batch_inserted
+                        print(f" SUCCESS {batch_inserted} inserted")
                         
                         conn.commit()
-                        print(f"   ✅ Processed {len(data)} rows, inserted {rows_inserted} new rows (duplicates automatically skipped)")
-                        successful_uploads += 1
                         
                     except Exception as sql_error:
-                        print(f"   🔍 SQL Error details:")
+                        print(f" ERROR")
+                        print(f"   [DEBUG] SQL Error details:")
                         print(f"      Query: {insert_query}")
                         print(f"      Columns: {list(df_upload.columns)}")
-                        print(f"      Sample data: {data[0] if data else 'No data'}")
+                        print(f"      Sample data: {batch[0] if batch else 'No data'}")
                         conn.rollback()
                         raise sql_error
-                        
+                
+                print(f"   [SUCCESS] Processed {len(data)} rows, inserted {total_inserted} new rows (duplicates automatically skipped)")
+                successful_uploads += 1
+                    
         except Exception as e:
-            print(f"   ❌ Error processing file: {e}")
+            print(f"   [ERROR] Error processing file: {e}")
             failed_uploads += 1
-            conn.rollback()
+            try:
+                conn.rollback()
+            except:
+                pass
+    
+    print(f"\n[SUMMARY] Upload Summary:")
+    print(f"   [SUCCESS] Successful: {successful_uploads}")
+    print(f"   [FAILED] Failed: {failed_uploads}")
+    print(f"   [TOTAL] Total files processed: {len(excel_files)}")
         
-        print(f"\n📊 Upload Summary:")
-        print(f"   ✅ Successful: {successful_uploads}")
-        print(f"   ❌ Failed: {failed_uploads}")
-        print(f"   📁 File processed: {excel_file.name}")
-        
-    except Exception as e:
-        print(f"Error during Supabase loading: {e}")
-    finally:
+    try:
         conn.close()
+    except:
+        pass  # Connection might already be closed
 
 if __name__ == "__main__":
     ### load_to_sqlite()
