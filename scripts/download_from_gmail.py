@@ -16,7 +16,15 @@ SAVE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 
 
 def clean_filename(text):
-    return "".join(c for c in text if c.isalnum() or c in (' ', '.', '_', '-')).rstrip()
+    """Clean filename by removing problematic characters and handling Unicode"""
+    if isinstance(text, bytes):
+        text = text.decode('utf-8', errors='replace')
+    # Replace problematic characters with safe alternatives
+    text = text.replace('—', '-').replace('–', '-').replace('"', '').replace('"', '')
+    # Keep only alphanumeric, spaces, dots, underscores, and hyphens
+    cleaned = "".join(c for c in text if c.isalnum() or c in (' ', '.', '_', '-')).rstrip()
+    # Ensure the filename isn't empty
+    return cleaned if cleaned else "attachment"
 
 
 def extract_store_info(subject):
@@ -73,13 +81,19 @@ def download_email_bodies():
         if filename:
             filename_decoded = decode_header(filename)[0][0]
             if isinstance(filename_decoded, bytes):
-                filename_decoded = filename_decoded.decode()
+                filename_decoded = filename_decoded.decode('utf-8', errors='replace')
+            # Clean filename to avoid filesystem issues
+            filename_decoded = clean_filename(filename_decoded)
             if filename_decoded.lower().endswith((".xlsx", ".xls")):
                 save_filename = f"{date_for_filename}_{filename_decoded}"
                 filepath = os.path.join(SAVE_DIR, save_filename)
                 with open(filepath, "wb") as f:
                     f.write(part.get_payload(decode=True))
-                print(f"[OK] Saved attachment: {filepath}")
+                try:
+                    print(f"[OK] Saved attachment: {filepath}")
+                except UnicodeEncodeError:
+                    # Fallback for console encoding issues
+                    print(f"[OK] Saved attachment: {filepath.encode('utf-8', errors='replace').decode('utf-8')}")
                 attachment_count += 1
     if attachment_count == 0:
         print(f"No Excel attachments found in: {subject}")

@@ -4,6 +4,13 @@ import pandas as pd
 import sqlite3
 import os
 
+def safe_print(msg, end='\n'):
+    """Print with Unicode error handling for Windows console"""
+    try:
+        print(msg, end=end)
+    except UnicodeEncodeError:
+        print(msg.encode('ascii', errors='replace').decode('ascii'), end=end)
+
 BASE_DIR = Path(__file__).resolve().parents[1]
 import sys
 sys.path.append(str(BASE_DIR))
@@ -87,19 +94,19 @@ def get_all_excel_files():
 def load_to_sqlite():
     excel_file = get_latest_excel_file()
     if not excel_file:
-        print("No compiled Excel files found.")
+        safe_print("No compiled Excel files found.")
         return
 
-    print(f"Loading latest file to SQLite: {excel_file.name}")
+    safe_print(f"Loading latest file to SQLite: {excel_file.name}")
     conn = sqlite3.connect(DB_PATH)
 
     try:
-        print(f"Loading from: {excel_file.name}")
+        safe_print(f"Loading from: {excel_file.name}")
         
         # Detect file type
         file_type = detect_file_type(excel_file.name)
         if not file_type:
-            print(f"   ⚠️  Unknown file type, cannot load")
+            safe_print(f"   ⚠️  Unknown file type, cannot load")
             return
         
         config = file_type_mapping[file_type]
@@ -112,34 +119,34 @@ def load_to_sqlite():
         if 'date' in df.columns:
             df['date'] = pd.to_datetime(df['date'], errors='coerce').dt.date
 
-        print(f"Inserting {len(df)} rows into table '{table_name}'...")
+        safe_print(f"Inserting {len(df)} rows into table '{table_name}'...")
         df.to_sql(table_name, conn, if_exists="append", index=False)
 
         conn.commit()
-        print("✅ File successfully loaded into SQLite.")
+        safe_print("✅ File successfully loaded into SQLite.")
         
     except Exception as e:
-        print(f"Error during loading: {e}")
+        safe_print(f"Error during loading: {e}")
     finally:
         conn.close()
 
     if DELETE_AFTER_LOAD:
         os.remove(excel_file)
-        print(f"Deleted: {excel_file.name}")
+        safe_print(f"Deleted: {excel_file.name}")
 def load_to_supabase():
     excel_files = get_all_excel_files()
     if not excel_files:
-        print("No compiled Excel files found.")
+        safe_print("No compiled Excel files found.")
         return
 
-    print(f"Found {len(excel_files)} compiled files to upload to Supabase:")
+    safe_print(f"Found {len(excel_files)} compiled files to upload to Supabase:")
     for i, file in enumerate(excel_files, 1):
-        print(f"  {i}. {file.name}")
+        safe_print(f"  {i}. {file.name}")
     
     try:
         conn = supabase_db.get_supabase_connection()
     except Exception as e:
-        print(f"Supabase connection error: {e}")
+        safe_print(f"Supabase connection error: {e}")
         return
 
     successful_uploads = 0
@@ -147,24 +154,24 @@ def load_to_supabase():
     
     for excel_file in excel_files:
         try:
-            print(f"\n[FILE] Loading: {excel_file.name}")
+            safe_print(f"\n[FILE] Loading: {excel_file.name}")
             
             # Detect file type
             file_type = detect_file_type(excel_file.name)
             if not file_type:
-                print(f"   [WARNING] Unknown file type, cannot upload")
+                safe_print(f"   [WARNING] Unknown file type, cannot upload")
                 failed_uploads += 1
                 continue
                 
             config = file_type_mapping[file_type]
             table_name = config["table"]
             
-            print(f"   [INFO] Detected type: {file_type} -> {table_name}")
+            safe_print(f"   [INFO] Detected type: {file_type} -> {table_name}")
             
             # Read the Excel file (single sheet)
             df = pd.read_excel(excel_file)
             
-            print(f"   [DATA] Read {len(df)} rows, {len(df.columns)} columns")
+            safe_print(f"   [DATA] Read {len(df)} rows, {len(df.columns)} columns")
             
             # Convert date column to proper format
             if 'date' in df.columns:
@@ -177,7 +184,7 @@ def load_to_supabase():
             # Use columns that exist in both expected and actual
             valid_cols = list(expected_cols & actual_cols)
             if not valid_cols:
-                print(f"   [ERROR] No matching columns found")
+                safe_print(f"   [ERROR] No matching columns found")
                 failed_uploads += 1
                 continue
                 
@@ -211,7 +218,7 @@ def load_to_supabase():
                         (df_upload[col] != '0')
                     ]
             
-            print(f"   [UPLOAD] Uploading {len(df_upload)} rows to {table_name}")
+            safe_print(f"   [UPLOAD] Uploading {len(df_upload)} rows to {table_name}")
             
             # Build insert query with conflict handling
             cols = ','.join(df_upload.columns)
@@ -237,40 +244,40 @@ def load_to_supabase():
                     batch_num = i // batch_size + 1
                     total_batches = (len(data) + batch_size - 1) // batch_size
                     
-                    print(f"      Batch {batch_num}/{total_batches} ({len(batch)} rows)...", end='')
+                    safe_print(f"      Batch {batch_num}/{total_batches} ({len(batch)} rows)...", end='')
                     
                     try:
                         cur.executemany(insert_query, batch)
                         batch_inserted = cur.rowcount
                         total_inserted += batch_inserted
-                        print(f" SUCCESS {batch_inserted} inserted")
+                        safe_print(f" SUCCESS {batch_inserted} inserted")
                         
                         conn.commit()
                         
                     except Exception as sql_error:
-                        print(f" ERROR")
-                        print(f"   [DEBUG] SQL Error details:")
-                        print(f"      Query: {insert_query}")
-                        print(f"      Columns: {list(df_upload.columns)}")
-                        print(f"      Sample data: {batch[0] if batch else 'No data'}")
+                        safe_print(f" ERROR")
+                        safe_print(f"   [DEBUG] SQL Error details:")
+                        safe_print(f"      Query: {insert_query}")
+                        safe_print(f"      Columns: {list(df_upload.columns)}")
+                        safe_print(f"      Sample data: {batch[0] if batch else 'No data'}")
                         conn.rollback()
                         raise sql_error
                 
-                print(f"   [SUCCESS] Processed {len(data)} rows, inserted {total_inserted} new rows (duplicates automatically skipped)")
+                safe_print(f"   [SUCCESS] Processed {len(data)} rows, inserted {total_inserted} new rows (duplicates automatically skipped)")
                 successful_uploads += 1
                     
         except Exception as e:
-            print(f"   [ERROR] Error processing file: {e}")
+            safe_print(f"   [ERROR] Error processing file: {e}")
             failed_uploads += 1
             try:
                 conn.rollback()
             except:
                 pass
     
-    print(f"\n[SUMMARY] Upload Summary:")
-    print(f"   [SUCCESS] Successful: {successful_uploads}")
-    print(f"   [FAILED] Failed: {failed_uploads}")
-    print(f"   [TOTAL] Total files processed: {len(excel_files)}")
+    safe_print(f"\n[SUMMARY] Upload Summary:")
+    safe_print(f"   [SUCCESS] Successful: {successful_uploads}")
+    safe_print(f"   [FAILED] Failed: {failed_uploads}")
+    safe_print(f"   [TOTAL] Total files processed: {len(excel_files)}")
         
     try:
         conn.close()

@@ -32,7 +32,12 @@ PC_TO_STORE = {
 
 # ---------------- Utilities ----------------
 def log(msg: str) -> None:
-    if DEBUG: print(msg)
+    if DEBUG: 
+        try:
+            print(msg)
+        except UnicodeEncodeError:
+            # Fallback for Windows console encoding issues
+            print(msg.encode('ascii', errors='replace').decode('ascii'))
 
 def norm(s: str) -> str:
     if s is None: return ""
