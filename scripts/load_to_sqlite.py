@@ -76,7 +76,7 @@ def detect_file_type(filename):
         return "Sales by Subcategory"
     elif "Tender Type" in filename_str:
         return "Tender Type"
-    elif "Sales_summary" in filename_str:  # From Sales Mix Detail
+    elif "Sales_summary" in filename_str or "Sales Mix Detail" in filename_str:  # From Sales Mix Detail
         return "Sales_summary"
     elif "Menu Mix Metrics" in filename_str:
         return "Menu Mix Metrics"
