@@ -20,14 +20,40 @@ def download_tender_sales_report(start_date, end_date):
     """Execute SQL query and download tender sales report."""
     
     sql_query = f"""
-    WITH tender_pivot AS (
+    WITH tender_normalized AS (
       SELECT
         TRIM(LOWER(t.store)) AS store_norm,
         DATE(t.date) AS date_norm,
-        t.tender_type,
+        CASE
+          -- Normalize Gift Card variations
+          WHEN LOWER(t.tender_type) IN ('gc redeem', 'gift card redeem', 'gift card redeem offline') 
+            THEN 'Gift Card Redeem'
+          -- Normalize Visa variations
+          WHEN LOWER(t.tender_type) IN ('visa', 'visa - kiosk', 'visa-kiosk') 
+            THEN 'Visa'
+          -- Normalize Mastercard variations
+          WHEN LOWER(t.tender_type) IN ('mastercard', 'mastercard - kiosk') 
+            THEN 'Mastercard'
+          -- Standardize others
+          WHEN LOWER(t.tender_type) = 'amex' THEN 'Amex'
+          WHEN LOWER(t.tender_type) = 'discover' THEN 'Discover'
+          WHEN LOWER(t.tender_type) = 'doordash' THEN 'Doordash'
+          WHEN LOWER(t.tender_type) = 'grub hub' THEN 'Grub Hub'
+          WHEN LOWER(t.tender_type) = 'uber eats' THEN 'Uber Eats'
+          ELSE t.tender_type
+        END AS tender_type_clean,
         t.detail_amount
       FROM tender_type_metrics t
       WHERE t.date BETWEEN '{start_date}' AND '{end_date}'
+    ),
+    tender_aggregated AS (
+      SELECT
+        store_norm,
+        date_norm,
+        tender_type_clean,
+        SUM(detail_amount) AS total_amount
+      FROM tender_normalized
+      GROUP BY store_norm, date_norm, tender_type_clean
     )
     SELECT
       s.store AS "Store",
@@ -38,17 +64,25 @@ def download_tender_sales_report(start_date, end_date):
       s.pa_sales_tax         AS "Tax",
       s.paid_out             AS "Paid Out",
 
-      -- Tender values from actual data
-      COALESCE(gc.detail_amount, 0) AS "Gift Card Redeem",
-      COALESCE(ue.detail_amount, 0) AS "Uber Eats",
-      COALESCE(dd.detail_amount, 0) AS "Door Dash",
-      COALESCE(gh.detail_amount, 0) AS "Grubhub"
+      -- Tender values (aggregated and normalized)
+      COALESCE(gc.total_amount, 0) AS "Gift Card Redeem",
+      COALESCE(ue.total_amount, 0) AS "Uber Eats",
+      COALESCE(dd.total_amount, 0) AS "Door Dash",
+      COALESCE(gh.total_amount, 0) AS "Grubhub",
+      COALESCE(vi.total_amount, 0) AS "Visa",
+      COALESCE(mc.total_amount, 0) AS "Mastercard",
+      COALESCE(ax.total_amount, 0) AS "Amex",
+      COALESCE(di.total_amount, 0) AS "Discover"
 
     FROM sales_summary s
-    LEFT JOIN tender_pivot gc ON TRIM(LOWER(s.store)) = gc.store_norm AND DATE(s.date) = gc.date_norm AND gc.tender_type = 'GC Redeem'
-    LEFT JOIN tender_pivot ue ON TRIM(LOWER(s.store)) = ue.store_norm AND DATE(s.date) = ue.date_norm AND ue.tender_type = 'Uber Eats'
-    LEFT JOIN tender_pivot dd ON TRIM(LOWER(s.store)) = dd.store_norm AND DATE(s.date) = dd.date_norm AND dd.tender_type = 'Doordash'
-    LEFT JOIN tender_pivot gh ON TRIM(LOWER(s.store)) = gh.store_norm AND DATE(s.date) = gh.date_norm AND gh.tender_type = 'Grubhub'
+    LEFT JOIN tender_aggregated gc ON TRIM(LOWER(s.store)) = gc.store_norm AND DATE(s.date) = gc.date_norm AND gc.tender_type_clean = 'Gift Card Redeem'
+    LEFT JOIN tender_aggregated ue ON TRIM(LOWER(s.store)) = ue.store_norm AND DATE(s.date) = ue.date_norm AND ue.tender_type_clean = 'Uber Eats'
+    LEFT JOIN tender_aggregated dd ON TRIM(LOWER(s.store)) = dd.store_norm AND DATE(s.date) = dd.date_norm AND dd.tender_type_clean = 'Doordash'
+    LEFT JOIN tender_aggregated gh ON TRIM(LOWER(s.store)) = gh.store_norm AND DATE(s.date) = gh.date_norm AND gh.tender_type_clean = 'Grub Hub'
+    LEFT JOIN tender_aggregated vi ON TRIM(LOWER(s.store)) = vi.store_norm AND DATE(s.date) = vi.date_norm AND vi.tender_type_clean = 'Visa'
+    LEFT JOIN tender_aggregated mc ON TRIM(LOWER(s.store)) = mc.store_norm AND DATE(s.date) = mc.date_norm AND mc.tender_type_clean = 'Mastercard'
+    LEFT JOIN tender_aggregated ax ON TRIM(LOWER(s.store)) = ax.store_norm AND DATE(s.date) = ax.date_norm AND ax.tender_type_clean = 'Amex'
+    LEFT JOIN tender_aggregated di ON TRIM(LOWER(s.store)) = di.store_norm AND DATE(s.date) = di.date_norm AND di.tender_type_clean = 'Discover'
     WHERE s.date BETWEEN '{start_date}' AND '{end_date}'
     ORDER BY s.store, s.date;
     """
@@ -94,9 +128,14 @@ def download_tender_sales_report(start_date, end_date):
             print(f"Stores included: {df['Store'].nunique()}")
             print(f"Date range: {df['Date'].min()} to {df['Date'].max()}")
             print(f"Total Dunkin Net Sales: ${df['Dunkin Net Sales'].sum():,.2f}")
-            print(f"Total Door Dash: ${df['Door Dash'].sum():,.2f}")
-            print(f"Total Uber Eats: ${df['Uber Eats'].sum():,.2f}")
             print(f"Total Gift Card Redeem: ${df['Gift Card Redeem'].sum():,.2f}")
+            print(f"Total Uber Eats: ${df['Uber Eats'].sum():,.2f}")
+            print(f"Total Door Dash: ${df['Door Dash'].sum():,.2f}")
+            print(f"Total Grubhub: ${df['Grubhub'].sum():,.2f}")
+            print(f"Total Visa: ${df['Visa'].sum():,.2f}")
+            print(f"Total Mastercard: ${df['Mastercard'].sum():,.2f}")
+            print(f"Total Amex: ${df['Amex'].sum():,.2f}")
+            print(f"Total Discover: ${df['Discover'].sum():,.2f}")
             
             return output_file
         else:
