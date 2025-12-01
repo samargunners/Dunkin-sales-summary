@@ -64,7 +64,7 @@ def download_tender_sales_report(start_date, end_date):
       TO_CHAR(s.date, 'MM/DD/YY') AS "Date",
       s.dd_adjusted_no_markup AS "Dunkin Net Sales",
       s.cash_in AS "Cash Due",
-      s.gift_card_sales AS "Gift Card Sales",
+      ABS(s.gift_card_sales) AS "Gift Card Sales",
       s.pa_sales_tax AS "Tax",
       s.paid_out AS "Paid Out",
       COALESCE(gc.detail_amount, 0) AS "Gift Card Redeem",
