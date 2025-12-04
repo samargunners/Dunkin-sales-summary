@@ -133,13 +133,61 @@ def load_to_sqlite():
     if DELETE_AFTER_LOAD:
         os.remove(excel_file)
         safe_print(f"Deleted: {excel_file.name}")
+def get_latest_date_from_supabase():
+    """Query Supabase to get the most recent business_date with data"""
+    try:
+        conn = supabase_db.get_supabase_connection()
+        response = conn.table("sales_summary").select("date").order("date", desc=True).limit(1).execute()
+        
+        if response.data and len(response.data) > 0:
+            latest_date_str = response.data[0]['date']
+            latest_date = datetime.strptime(latest_date_str, '%Y-%m-%d').date()
+            safe_print(f"[CHECKPOINT] Latest date in database: {latest_date}")
+            return latest_date
+        else:
+            safe_print("[CHECKPOINT] No data found in database, will upload all files")
+            return None
+    except Exception as e:
+        safe_print(f"[CHECKPOINT] Error querying latest date: {e}")
+        safe_print("[CHECKPOINT] Will upload all files as fallback")
+        return None
+
+def extract_date_from_filename(filename):
+    """Extract date from compiled filename"""
+    # Format: 20251204_Consolidated Dunkin Sales Summary_...
+    try:
+        date_str = str(filename)[:8]  # First 8 characters: YYYYMMDD
+        return datetime.strptime(date_str, '%Y%m%d').date()
+    except Exception:
+        return None
+
 def load_to_supabase():
     excel_files = get_all_excel_files()
     if not excel_files:
         safe_print("No compiled Excel files found.")
         return
 
-    safe_print(f"Found {len(excel_files)} compiled files to upload to Supabase:")
+    safe_print(f"Found {len(excel_files)} compiled files")
+    
+    # Get latest date from database
+    latest_date = get_latest_date_from_supabase()
+    
+    # Filter files to only those newer than latest_date
+    if latest_date:
+        filtered_files = []
+        for file in excel_files:
+            file_date = extract_date_from_filename(file.name)
+            if file_date and file_date > latest_date:
+                filtered_files.append(file)
+        
+        excel_files = filtered_files
+        safe_print(f"[CHECKPOINT] Filtered to {len(excel_files)} new files (after {latest_date})")
+        
+        if not excel_files:
+            safe_print("[CHECKPOINT] No new files to upload. Database is up to date!")
+            return
+    
+    safe_print(f"\nFiles to upload to Supabase:")
     for i, file in enumerate(excel_files, 1):
         safe_print(f"  {i}. {file.name}")
     
@@ -199,6 +247,11 @@ def load_to_supabase():
             if 'pc_number' in df_upload.columns:
                 df_upload['pc_number'] = df_upload['pc_number'].astype(str)
             
+            # FIX: Apply abs() to gift_card_sales to ensure positive values
+            if 'gift_card_sales' in df_upload.columns:
+                df_upload['gift_card_sales'] = df_upload['gift_card_sales'].abs()
+                safe_print(f"   [FIX] Applied abs() to gift_card_sales column")
+            
             # Handle NaN values properly based on data type
             for col in df_upload.columns:
                 if df_upload[col].dtype in ['float64', 'int64']:
@@ -217,6 +270,16 @@ def load_to_supabase():
                         (df_upload[col] != '') & 
                         (df_upload[col] != '0')
                     ]
+            
+            # FIX: For tender_type_metrics, ensure Gift Card Redeem rows are included
+            if table_name == 'tender_type_metrics' and 'tender_type' in df_upload.columns:
+                # Log tender types being uploaded
+                tender_types = df_upload['tender_type'].unique()
+                safe_print(f"   [INFO] Tender types in this file: {', '.join(tender_types)}")
+                # Ensure we're not filtering out Gift Card Redeem
+                gc_redeem_count = len(df_upload[df_upload['tender_type'] == 'Gift Card Redeem'])
+                if gc_redeem_count > 0:
+                    safe_print(f"   [INFO] Gift Card Redeem records: {gc_redeem_count}")
             
             safe_print(f"   [UPLOAD] Uploading {len(df_upload)} rows to {table_name}")
             

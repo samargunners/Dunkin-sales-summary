@@ -23,10 +23,11 @@ LOC_TO_PC = {
     "359042 - 737 South Broad Street": "359042",
     "363271 - 1154 River Road": "363271",
     "364322 - 820 South Market Street": "364322",
+    "362913 - 900 Eisenhower Blvd": "362913",
 }
 PC_TO_STORE = {
     "301290":"Paxton","343939":"MountJoy","357993":"Enola",
-    "358529":"Columbia","359042":"Lititz","363271":"Marietta","364322":"Etown",
+    "358529":"Columbia","359042":"Lititz","363271":"Marietta","364322":"Etown","362913":"Eisenhower",
 }
 # =====================================
 
