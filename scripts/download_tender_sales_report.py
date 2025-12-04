@@ -26,7 +26,7 @@ def download_tender_sales_report(start_date, end_date):
         t.date,
         t.detail_amount,
         CASE
-          WHEN t.tender_type ILIKE '%gift%card%redeem%' THEN 'gift_card_redeem'
+          WHEN t.tender_type ILIKE '%gc%redeem%' OR t.tender_type ILIKE '%gift%card%redeem%' THEN 'gift_card_redeem'
           WHEN t.tender_type ILIKE '%uber%eats%' THEN 'uber_eats'
           WHEN t.tender_type ILIKE '%door%dash%' THEN 'door_dash'
           WHEN t.tender_type ILIKE '%grub%hub%' THEN 'grubhub'
@@ -39,7 +39,7 @@ def download_tender_sales_report(start_date, end_date):
         ROW_NUMBER() OVER (
           PARTITION BY t.store, t.date,
                        CASE
-                         WHEN t.tender_type ILIKE '%gift%card%redeem%' THEN 'gift_card_redeem'
+                         WHEN t.tender_type ILIKE '%gc%redeem%' OR t.tender_type ILIKE '%gift%card%redeem%' THEN 'gift_card_redeem'
                          WHEN t.tender_type ILIKE '%uber%eats%' THEN 'uber_eats'
                          WHEN t.tender_type ILIKE '%door%dash%' THEN 'door_dash'
                          WHEN t.tender_type ILIKE '%grub%hub%' THEN 'grubhub'
