@@ -29,7 +29,7 @@ def verify_gc_totals():
                 COUNT(*) as total_records,
                 SUM(detail_amount) as total_amount
             FROM tender_type_metrics
-            WHERE date BETWEEN '2025-10-01' AND '2025-10-31'
+            WHERE date BETWEEN '2025-10-01' AND '2025-10-31
             AND tender_type ILIKE '%gift%card%redeem%'
         """)
         
