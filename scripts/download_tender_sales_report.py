@@ -103,11 +103,61 @@ def download_tender_sales_report(start_date, end_date):
         # Convert to DataFrame
         df = pd.DataFrame(rows, columns=column_names)
         
+        # Add missing dates with zero values (e.g., Nov 27 Thanksgiving)
+        # First, get list of all stores
+        cursor.execute(f"SELECT DISTINCT store FROM sales_summary WHERE date BETWEEN '{start_date}' AND '{end_date}' ORDER BY store")
+        all_stores = [row[0] for row in cursor.fetchall()]
+        
         # Close cursor and connection
         cursor.close()
         conn.close()
         
         if len(df) > 0:
+            # Generate all dates in range
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+            all_dates = pd.date_range(start=start_dt, end=end_dt, freq='D')
+            
+            # Find missing dates in the dataframe
+            df['Date_dt'] = pd.to_datetime(df['Date'], format='%m/%d/%y')
+            existing_dates = set(df['Date_dt'].dt.date)
+            
+            missing_rows = []
+            for date in all_dates:
+                if date.date() not in existing_dates:
+                    # Add a row for each store on this missing date with zeros
+                    for store in all_stores:
+                        missing_rows.append({
+                            'Store': store,
+                            'Date': date.strftime('%m/%d/%y'),
+                            'Dunkin Net Sales': 0.0,
+                            'Cash Due': 0.0,
+                            'Gift Card Sales': 0.0,
+                            'Tax': 0.0,
+                            'Paid Out': 0.0,
+                            'Gift Card Redeem': 0.0,
+                            'Uber Eats': 0.0,
+                            'Door Dash': 0.0,
+                            'Grubhub': 0.0,
+                            'Visa': 0.0,
+                            'Mastercard': 0.0,
+                            'Discover': 0.0,
+                            'Amex': 0.0
+                        })
+            
+            # Append missing rows and sort by Store first, then Date
+            if missing_rows:
+                df_missing = pd.DataFrame(missing_rows)
+                df = pd.concat([df, df_missing], ignore_index=True)
+                df['Date_dt'] = pd.to_datetime(df['Date'], format='%m/%d/%y')
+                df = df.sort_values(['Store', 'Date_dt']).reset_index(drop=True)
+                df = df.drop('Date_dt', axis=1)
+                print(f"   [INFO] Added {len(missing_rows)} rows for missing dates")
+            else:
+                # Still sort by Store and Date even if no missing rows
+                df['Date_dt'] = pd.to_datetime(df['Date'], format='%m/%d/%y')
+                df = df.sort_values(['Store', 'Date_dt']).reset_index(drop=True)
+                df = df.drop('Date_dt', axis=1)
             # Create exports directory if it doesn't exist
             exports_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'exports')
             os.makedirs(exports_dir, exist_ok=True)
