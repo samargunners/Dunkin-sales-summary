@@ -2,11 +2,14 @@ import imaplib
 import email
 from email.header import decode_header
 import os
+from dotenv import load_dotenv
 
-# Email credentials
+
+# Email credentials from .env
 IMAP_SERVER = "imap.gmail.com"
-EMAIL = "dunkinsamar@gmail.com"
-PASSWORD = "huyoqtzoaztqdgzw"
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../../.env'))
+EMAIL = os.getenv("EMAIL_USER")
+PASSWORD = os.getenv("EMAIL_PASS")
 
 # Directory to save the attachment
 SAVE_DIR = r"C:\Projects\Dunkin-sales-summary\data\hme\raw"

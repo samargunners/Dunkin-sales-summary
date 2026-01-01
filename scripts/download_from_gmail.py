@@ -6,10 +6,13 @@ import datetime
 import re
 from bs4 import BeautifulSoup
 
-# Email credentials
+# Load credentials from .env
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'))
+
 IMAP_SERVER = "imap.gmail.com"
-EMAIL = "dunkinsamar@gmail.com"
-PASSWORD = "huyoqtzoaztqdgzw"
+EMAIL = os.getenv("EMAIL_USER")
+PASSWORD = os.getenv("EMAIL_PASS")
 
 # Directory to save raw email content
 SAVE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "raw_emails")

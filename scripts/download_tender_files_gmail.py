@@ -13,10 +13,13 @@ from email.header import decode_header
 from datetime import datetime, timedelta
 import re
 
-# Email credentials (same as download_from_gmail.py)
+# Load credentials from .env
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'))
+
 IMAP_SERVER = "imap.gmail.com"
-EMAIL = "dunkinsamar@gmail.com"
-PASSWORD = "huyoqtzoaztqdgzw"
+EMAIL = os.getenv("EMAIL_USER")
+PASSWORD = os.getenv("EMAIL_PASS")
 
 def download_tender_type_files(start_date='2025-10-19'):
     """Download tender type files from Gmail starting from the specified date."""

@@ -42,6 +42,10 @@ values (
 """
 
 def find_latest_transformed() -> Path | None:
+    # Prefer bulk file if it exists
+    bulk = DATA_DIR / "transformed" / "hme_transformed_bulk.xlsx"
+    if bulk.exists():
+        return bulk
     # Only consider XLSX files
     candidates = list((DATA_DIR / "transformed").glob("hme_transformed.xlsx"))
     if not candidates:
