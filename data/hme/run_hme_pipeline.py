@@ -6,11 +6,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 
-# --- PATH SETUP ---
-BASE_DIR = Path(__file__).resolve().parents[0]   # folder containing THIS file
-# If you prefer the project root explicitly, use:
-# BASE_DIR = Path(r"C:\Projects\Dunkin-sales-summary")
 
+# --- PATH SETUP ---
+BASE_DIR = Path(__file__).resolve().parents[1]  # project root
 load_dotenv(dotenv_path=BASE_DIR / '.env')
 
 LOG_DIR = BASE_DIR / "logs"
