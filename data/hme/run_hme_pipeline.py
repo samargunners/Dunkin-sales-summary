@@ -63,9 +63,9 @@ def main():
         TRANSFORMED_DIR = HME_DIR / "transformed"
 
         steps = [
-            HME_DIR / "download_hme_gmail.py",
-            HME_DIR / "transform_hme.py",
-            HME_DIR / "upload_hme_to_supabase.py",
+            HME_DIR / "hme" / "download_hme_gmail.py",
+            HME_DIR / "hme" / "transform_hme.py",
+            HME_DIR / "hme" / "upload_hme_to_supabase.py",
         ]
 
         for step in steps:
