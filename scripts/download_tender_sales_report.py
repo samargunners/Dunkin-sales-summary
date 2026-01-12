@@ -62,19 +62,21 @@ def download_tender_sales_report(start_date, end_date):
     SELECT
       s.store AS "Store",
       TO_CHAR(s.date, 'MM/DD/YY') AS "Date",
+      TO_CHAR(s.date, 'Dy') AS "day",
       s.dd_adjusted_no_markup AS "Dunkin Net Sales",
-      s.cash_in AS "Cash Due",
-      ABS(s.gift_card_sales) AS "Gift Card Sales",
       s.pa_sales_tax AS "Tax",
-      s.paid_out AS "Paid Out",
+      ABS(s.gift_card_sales) AS "Gift Card Sales",
+      (s.dd_adjusted_no_markup + s.pa_sales_tax + ABS(s.gift_card_sales)) AS "Total",
+      s.cash_in AS "Cash Due",
+      COALESCE(ma.detail_amount, 0) AS "Mastercard",
+      COALESCE(vi.detail_amount, 0) AS "Visa",
+      COALESCE(di.detail_amount, 0) AS "Discover",
+      COALESCE(ax.detail_amount, 0) AS "Amex",
       COALESCE(gc.detail_amount, 0) AS "Gift Card Redeem",
       COALESCE(ue.detail_amount, 0) AS "Uber Eats",
       COALESCE(dd.detail_amount, 0) AS "Door Dash",
       COALESCE(gh.detail_amount, 0) AS "Grubhub",
-      COALESCE(vi.detail_amount, 0) AS "Visa",
-      COALESCE(ma.detail_amount, 0) AS "Mastercard",
-      COALESCE(di.detail_amount, 0) AS "Discover",
-      COALESCE(ax.detail_amount, 0) AS "Amex"
+      s.paid_out AS "Paid Out"
     FROM sales_summary s
     LEFT JOIN tender_clean gc ON gc.store = s.store AND gc.date = s.date AND gc.tcat = 'gift_card_redeem'
     LEFT JOIN tender_clean ue ON ue.store = s.store AND ue.date = s.date AND ue.tcat = 'uber_eats'
@@ -130,19 +132,21 @@ def download_tender_sales_report(start_date, end_date):
                         missing_rows.append({
                             'Store': store,
                             'Date': date.strftime('%m/%d/%y'),
+                            'day': date.strftime('%a'),
                             'Dunkin Net Sales': 0.0,
-                            'Cash Due': 0.0,
-                            'Gift Card Sales': 0.0,
                             'Tax': 0.0,
-                            'Paid Out': 0.0,
+                            'Gift Card Sales': 0.0,
+                            'Total': 0.0,
+                            'Cash Due': 0.0,
+                            'Mastercard': 0.0,
+                            'Visa': 0.0,
+                            'Discover': 0.0,
+                            'Amex': 0.0,
                             'Gift Card Redeem': 0.0,
                             'Uber Eats': 0.0,
                             'Door Dash': 0.0,
                             'Grubhub': 0.0,
-                            'Visa': 0.0,
-                            'Mastercard': 0.0,
-                            'Discover': 0.0,
-                            'Amex': 0.0
+                            'Paid Out': 0.0
                         })
             
             # Append missing rows and sort by Store first, then Date
@@ -170,9 +174,9 @@ def download_tender_sales_report(start_date, end_date):
             # Save to Excel
             df.to_excel(output_file, index=False, sheet_name='Tender Sales Report')
             
-            print(f"\n✓ Report generated successfully!")
-            print(f"✓ Total rows: {len(df)}")
-            print(f"✓ File saved to: {output_file}")
+            print(f"\n[OK] Report generated successfully!")
+            print(f"[OK] Total rows: {len(df)}")
+            print(f"[OK] File saved to: {output_file}")
             
             # Display summary statistics
             print("\n--- Summary Statistics ---")
@@ -216,7 +220,7 @@ if __name__ == "__main__":
         datetime.strptime(start_date, '%Y-%m-%d')
         datetime.strptime(end_date, '%Y-%m-%d')
     except ValueError:
-        print("\n❌ Invalid date format. Please use YYYY-MM-DD format.")
+        print("\n[ERROR] Invalid date format. Please use YYYY-MM-DD format.")
         sys.exit(1)
     
     print()
