@@ -14,7 +14,7 @@ EMAIL = os.getenv("EMAIL_USER")
 PASSWORD = os.getenv("EMAIL_PASS")
 
 SAVE_DIR = r"C:\Projects\Dunkin-sales-summary\data\hme\raw"
-START_DATE = "2025-12-20"  # YYYY-MM-DD (day after last date in DB)
+START_DATE = "2026-01-01"  # YYYY-MM-DD (day after last date in DB)
 END_DATE = datetime.now().strftime("%Y-%m-%d")
 
 

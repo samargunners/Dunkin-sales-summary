@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 import psycopg2
 from psycopg2.extras import execute_values
+from bs4 import BeautifulSoup
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -17,17 +18,114 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from dashboard.utils.supabase_db import get_supabase_connection
 
 
-def parse_medallia_email(email_text, report_date):
+def parse_medallia_email_html(html_text, report_date):
     """
-    Parse Medallia email text into structured records
+    Parse Medallia HTML email into structured records
     
     Args:
-        email_text: Raw email body text
+        html_text: HTML email body
         report_date: Date of the report (YYYY-MM-DD string)
     
     Returns:
         List of dictionaries with guest comment data
     """
+    soup = BeautifulSoup(html_text, 'html.parser')
+    records = []
+    
+    # Find all data rows (skip header)
+    rows = soup.find_all('tr', class_='row-data')
+    
+    for row in rows:
+        try:
+            # Get all data cells
+            cells = row.find_all('td')
+            
+            if len(cells) < 8:
+                continue
+            
+            # Extract restaurant info (PC number and address)
+            restaurant_text = cells[0].get_text(strip=True)
+            match = re.match(r'(\d{6})\s*-\s*(.+)', restaurant_text)
+            if not match:
+                continue
+            pc_number = match.group(1)
+            address = match.group(2)
+            
+            # Order channel (if empty, it's In-store)
+            order_channel_text = cells[1].get_text(strip=True)
+            order_channel = "Other" if order_channel_text else "In-store"
+            
+            # Transaction datetime
+            transaction_text = cells[2].get_text(strip=True)
+            transaction_dt = None
+            if transaction_text:
+                try:
+                    transaction_dt = datetime.strptime(transaction_text, "%m/%d/%y %I:%M %p")
+                except ValueError:
+                    pass
+            
+            # Response datetime
+            response_text = cells[3].get_text(strip=True)
+            if not response_text:
+                continue
+            response_dt = datetime.strptime(response_text, "%m/%d/%y %I:%M %p")
+            
+            # OSAT score
+            osat_text = cells[4].get_text(strip=True)
+            osat = int(osat_text) if osat_text else None
+            
+            # LTR score
+            ltr_text = cells[5].get_text(strip=True)
+            ltr = int(ltr_text) if ltr_text else None
+            
+            # Accuracy
+            accuracy = cells[6].get_text(strip=True) or ""
+            
+            # Find the comment row (next tr with class comments-row)
+            comment = ""
+            next_row = row.find_next_sibling('tr', class_='comments-row')
+            if next_row:
+                comment_div = next_row.find('div', class_='comments-verbiage')
+                if comment_div:
+                    comment = comment_div.get_text(strip=True)
+            
+            records.append({
+                "report_date": report_date,
+                "restaurant_pc": pc_number,
+                "restaurant_address": address,
+                "order_channel": order_channel,
+                "transaction_datetime": transaction_dt,
+                "response_datetime": response_dt,
+                "osat": osat,
+                "ltr": ltr,
+                "accuracy": accuracy,
+                "comment": comment
+            })
+            
+        except Exception as e:
+            print(f"  Warning: Failed to parse row: {e}")
+            continue
+    
+    return records
+
+
+def parse_medallia_email(email_text, report_date):
+    """
+    Parse Medallia email (HTML or text) into structured records
+    Automatically detects format and uses appropriate parser
+    
+    Args:
+        email_text: Raw email body (HTML or text)
+        report_date: Date of the report (YYYY-MM-DD string)
+    
+    Returns:
+        List of dictionaries with guest comment data
+    """
+    # Check if HTML
+    if '<table' in email_text or '<div' in email_text:
+        return parse_medallia_email_html(email_text, report_date)
+    
+    # Fallback to plain text parser (legacy format)
     lines = [l.strip() for l in email_text.splitlines() if l.strip()]
     records = []
     i = 0
@@ -152,19 +250,12 @@ def insert_records(conn, records):
         for r in records
     ]
     
-    # Execute batch insert
-    cursor.execute(
-        "SELECT COUNT(*) as inserted_count FROM (" +
-        insert_query.replace("RETURNING id", "") +
-        ") as subquery",
-        (values,)
-    )
-    
     # Use execute_values for efficient batch insert
     result = execute_values(
         cursor,
         insert_query,
         values,
+        template=None,
         fetch=True
     )
     
