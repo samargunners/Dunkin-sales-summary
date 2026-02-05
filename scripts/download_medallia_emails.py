@@ -129,7 +129,7 @@ def download_medallia_emails(days_back=7):
             f.write(f"{'-' * 80}\n\n")
             f.write(body)
         
-        print(f"✓ Saved: {filename}")
+        print(f"[OK] Saved: {filename}")
         downloaded_files.append(filepath)
     
     mail.logout()

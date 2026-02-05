@@ -307,7 +307,7 @@ def process_medallia_file(filepath, conn):
     
     # Insert into database
     inserted, duplicates = insert_records(conn, records)
-    print(f"  ✓ Inserted: {inserted}, Duplicates skipped: {duplicates}")
+    print(f"  [OK] Inserted: {inserted}, Duplicates skipped: {duplicates}")
     
     return inserted, duplicates
 
@@ -350,7 +350,7 @@ def process_all_medallia_files():
             total_inserted += inserted
             total_duplicates += duplicates
         except Exception as e:
-            print(f"  ✗ Error processing {filepath.name}: {e}")
+            print(f"  [ERROR] Error processing {filepath.name}: {e}")
             continue
     
     conn.close()
