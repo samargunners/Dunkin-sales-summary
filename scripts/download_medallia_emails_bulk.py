@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Download Medallia Daily Guest Comments emails from Gmail
+Bulk download Medallia Daily Guest Comments emails from Gmail.
 Searches for emails with subject containing "Daily Guest Comments Summary"
+within a provided date range (inclusive).
 """
 
 import imaplib
@@ -12,9 +13,10 @@ import datetime
 import re
 from pathlib import Path
 
-# Load credentials from .env
 from dotenv import load_dotenv
-load_dotenv(Path(__file__).parent.parent / '.env')
+
+# Load credentials from .env
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 IMAP_SERVER = "imap.gmail.com"
 EMAIL = os.getenv("EMAIL_USER")
@@ -29,7 +31,7 @@ def extract_report_date(subject):
     Extract date from subject like:
     'Daily Guest Comments Summary 2026-02-04'
     """
-    match = re.search(r'(\d{4}-\d{2}-\d{2})', subject)
+    match = re.search(r"(\d{4}-\d{2}-\d{2})", subject)
     if match:
         return match.group(1)
     return datetime.datetime.now().strftime("%Y-%m-%d")
@@ -38,58 +40,63 @@ def extract_report_date(subject):
 def get_email_text_body(msg):
     """Extract plain text body from email message"""
     body = ""
-    
+
     if msg.is_multipart():
         for part in msg.walk():
             content_type = part.get_content_type()
             content_disposition = str(part.get("Content-Disposition"))
-            
-            # Get plain text parts
+
             if content_type == "text/plain" and "attachment" not in content_disposition:
                 try:
                     body = part.get_payload(decode=True).decode()
                     break
-                except:
+                except Exception:
                     pass
     else:
         try:
             body = msg.get_payload(decode=True).decode()
-        except:
+        except Exception:
             pass
-    
+
     return body
 
 
-def download_medallia_emails(report_date):
+def download_medallia_emails_bulk(start_date, end_date):
     """
-    Download Medallia guest comments emails for a specific report date
+    Download Medallia guest comments emails within a date range.
 
     Args:
-        report_date: YYYY-MM-DD string
+        start_date: YYYY-MM-DD string (inclusive)
+        end_date: YYYY-MM-DD string (inclusive)
     """
     SAVE_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     print(f"Connecting to Gmail as {EMAIL}...")
     mail = imaplib.IMAP4_SSL(IMAP_SERVER)
     mail.login(EMAIL, PASSWORD)
     mail.select("inbox")
-    
-    # Search for Medallia emails in a single day window
-    day_dt = datetime.datetime.strptime(report_date, "%Y-%m-%d")
-    imap_start = day_dt.strftime("%d-%b-%Y")
-    imap_end = (day_dt + datetime.timedelta(days=1)).strftime("%d-%b-%Y")
+
+    start_dt = datetime.datetime.strptime(start_date, "%Y-%m-%d")
+    end_dt = datetime.datetime.strptime(end_date, "%Y-%m-%d")
+    if end_dt < start_dt:
+        print("Error: end date must be on or after start date")
+        mail.logout()
+        return []
+
+    imap_start = start_dt.strftime("%d-%b-%Y")
+    imap_end = (end_dt + datetime.timedelta(days=1)).strftime("%d-%b-%Y")
 
     print(
         "Searching for 'Daily Guest Comments Summary' emails "
-        f"for report date {report_date}..."
+        f"from {start_date} to {end_date}..."
     )
     result, data = mail.search(
         None,
         f'(SUBJECT "Daily Guest Comments Summary" SINCE {imap_start} BEFORE {imap_end})'
     )
-    
+
     email_ids = data[0].split()
-    
+
     if not email_ids:
         print("No matching emails found.")
         mail.logout()
@@ -107,32 +114,23 @@ def download_medallia_emails(report_date):
         raw_email = msg_data[0][1]
         msg = email.message_from_bytes(raw_email)
 
-        # Get subject
         subject = decode_header(msg["Subject"])[0][0]
         if isinstance(subject, bytes):
             subject = subject.decode()
 
-        # Get email date
         email_date = email.utils.parsedate_to_datetime(msg["Date"])
-
-        # Extract report date from subject
-        subject_report_date = extract_report_date(subject)
-        if subject_report_date != report_date:
-            continue
-
-        # Get email body
+        report_date = extract_report_date(subject)
         body = get_email_text_body(msg)
 
         if not body.strip():
             print(f"Warning: Empty body for email dated {email_date}")
             continue
 
-        # Save to file (use time to keep filenames unique per day)
         time_stamp = email_date.strftime("%H%M%S")
         filename = f"medallia_{report_date}_{time_stamp}.txt"
         filepath = SAVE_DIR / filename
 
-        with open(filepath, 'w', encoding='utf-8') as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(f"Subject: {subject}\n")
             f.write(f"Date: {email_date}\n")
             f.write(f"Report Date: {report_date}\n")
@@ -149,31 +147,32 @@ def download_medallia_emails(report_date):
 
 def main():
     import argparse
-    
+
     parser = argparse.ArgumentParser(
-        description="Download Medallia guest comments emails for a specific report date"
+        description="Bulk download Medallia guest comments emails from Gmail"
     )
-    parser.add_argument(
-        "--date",
-        required=True,
-        help="Report date to download (YYYY-MM-DD)"
-    )
+    parser.add_argument("--start", required=True, help="Start date (YYYY-MM-DD)")
+    parser.add_argument("--end", required=True, help="End date (YYYY-MM-DD)")
+
     args = parser.parse_args()
-    
+
     if not EMAIL or not PASSWORD:
         print("Error: EMAIL_USER and EMAIL_PASS must be set in .env file")
         return 1
-    
-    downloaded_files = download_medallia_emails(report_date=args.date)
-    
+
+    downloaded_files = download_medallia_emails_bulk(
+        start_date=args.start,
+        end_date=args.end
+    )
+
     if downloaded_files:
         print("\nNext steps:")
         print("1. Review downloaded files in:", SAVE_DIR)
         print("2. Run: python scripts/process_medallia_data.py")
         return 0
-    else:
-        print("No files downloaded")
-        return 1
+
+    print("No files downloaded")
+    return 1
 
 
 if __name__ == "__main__":
