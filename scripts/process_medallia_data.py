@@ -285,7 +285,10 @@ def process_medallia_file(filepath, conn):
         content = f.read()
     
     # Extract report date from filename or content
-    filename_match = re.search(r'medallia_(\d{4}-\d{2}-\d{2})', filepath.name)
+    filename_match = re.search(
+        r"medallia_(\d{4}-\d{2}-\d{2})(?:_\d{6})?\.txt$",
+        filepath.name
+    )
     if filename_match:
         report_date = filename_match.group(1)
     else:
