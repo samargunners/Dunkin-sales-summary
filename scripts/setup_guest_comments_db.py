@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Initialize the guest_comments table in Supabase
+Initialize the medallia_reports table in Supabase
 """
 
 import sys
@@ -10,8 +10,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dashboard.utils.supabase_db import get_supabase_connection
 
-def create_guest_comments_table():
-    """Create the guest_comments table and indexes"""
+def create_medallia_reports_table():
+    """Create the medallia_reports table and indexes"""
     
     sql_file = Path(__file__).parent.parent / "db" / "guest_comments_schema.sql"
     
@@ -30,7 +30,7 @@ def create_guest_comments_table():
         print(f"Error connecting to database: {e}")
         return 1
     
-    print("Creating guest_comments table...")
+    print("Creating medallia_reports table...")
     cursor = conn.cursor()
     
     try:
@@ -42,7 +42,7 @@ def create_guest_comments_table():
         cursor.execute("""
             SELECT column_name, data_type 
             FROM information_schema.columns 
-            WHERE table_name = 'guest_comments'
+            WHERE table_name = 'medallia_reports'
             ORDER BY ordinal_position
         """)
         
@@ -55,7 +55,7 @@ def create_guest_comments_table():
         cursor.execute("""
             SELECT indexname 
             FROM pg_indexes 
-            WHERE tablename = 'guest_comments'
+            WHERE tablename = 'medallia_reports'
         """)
         
         indexes = cursor.fetchall()
@@ -85,4 +85,4 @@ def create_guest_comments_table():
 
 
 if __name__ == "__main__":
-    exit(create_guest_comments_table())
+    exit(create_medallia_reports_table())

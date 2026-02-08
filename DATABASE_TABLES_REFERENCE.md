@@ -88,7 +88,7 @@ ORDER BY date;
 
 ## Guest Comments
 
-**Table Name**: `guest_comments`
+**Table Name**: `medallia_reports`
 
 **Description**: Stores customer feedback and satisfaction scores from Medallia daily guest comments surveys. Includes OSAT (Overall Satisfaction) and LTR (Likelihood to Return) metrics.
 
@@ -104,7 +104,7 @@ ORDER BY date;
 |----------------------|------------------------------|----------|--------------|-------------|
 | `id`                 | integer                      | NO       | Auto         | Primary key |
 | `report_date`        | date                         | NO       | -            | Date of Medallia report |
-| `restaurant_pc`      | character varying(10)        | NO       | -            | Restaurant PC number (store ID) |
+| `pc_number`          | character varying(10)        | NO       | -            | Restaurant PC number (store ID) |
 | `restaurant_address` | text                         | YES      | -            | Full store address |
 | `order_channel`      | character varying(20)        | YES      | -            | Order channel (In-store/Other) |
 | `transaction_datetime` | timestamp without time zone | YES      | -            | When transaction occurred |
@@ -117,7 +117,7 @@ ORDER BY date;
 
 ### Unique Constraint
 ```sql
-UNIQUE (restaurant_pc, response_datetime, comment)
+UNIQUE (pc_number, response_datetime, comment)
 ```
 This prevents duplicate entries for the same review.
 
@@ -150,25 +150,25 @@ This prevents duplicate entries for the same review.
 ```sql
 -- Calculate average scores by store
 SELECT 
-    restaurant_pc,
+    pc_number,
     COUNT(*) as total_reviews,
     AVG(osat) as avg_osat,
     AVG(ltr) as avg_ltr,
     COUNT(CASE WHEN accuracy = 'Yes' THEN 1 END) * 100.0 / COUNT(*) as accuracy_pct
-FROM guest_comments
+  FROM medallia_reports
 WHERE report_date >= '2026-01-01'
-GROUP BY restaurant_pc
+  GROUP BY pc_number
 ORDER BY avg_osat DESC;
 
 -- Find negative reviews (low scores)
 SELECT 
     report_date,
-    restaurant_pc,
+    pc_number,
     osat,
     ltr,
     accuracy,
     comment
-FROM guest_comments
+  FROM medallia_reports
 WHERE (osat <= 2 OR ltr <= 5)
     AND report_date >= '2026-01-01'
 ORDER BY report_date DESC;
@@ -179,7 +179,7 @@ SELECT
     COUNT(CASE WHEN ltr <= 6 THEN 1 END) * 100.0 / COUNT(*) as detractor_pct,
     COUNT(CASE WHEN ltr >= 9 THEN 1 END) * 100.0 / COUNT(*) - 
     COUNT(CASE WHEN ltr <= 6 THEN 1 END) * 100.0 / COUNT(*) as nps_score
-FROM guest_comments
+FROM medallia_reports
 WHERE report_date >= '2026-01-01';
 ```
 
@@ -231,7 +231,7 @@ CREATE INDEX idx_labour_metrics_store ON labour_metrics(store);
 ## Related Documentation
 
 - **Database Schema**: See `db/` folder for table creation scripts
-  - `db/guest_comments_schema.sql` - Guest comments table
+  - `db/guest_comments_schema.sql` - Medallia reports table
   - Additional schemas may be added as needed
 
 - **Data Pipelines**:

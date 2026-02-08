@@ -50,7 +50,7 @@ def main():
     conn = get_supabase_connection()
     cursor = conn.cursor()
     
-    tables = ['hme_report', 'guest_comments']
+    tables = ['hme_report', 'medallia_reports']
     
     # Check for labour tables
     cursor.execute("""

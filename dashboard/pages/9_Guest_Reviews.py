@@ -28,10 +28,10 @@ except Exception as e:
 
 # --- CHECK IF TABLE EXISTS ---
 try:
-    test_query = "SELECT COUNT(*) FROM guest_comments LIMIT 1"
+    test_query = "SELECT COUNT(*) FROM medallia_reports LIMIT 1"
     pd.read_sql(test_query, conn)
 except Exception as e:
-    st.error("Guest comments table not found. Please run the database schema setup first:")
+    st.error("Medallia reports table not found. Please run the database schema setup first:")
     st.code("psql <connection_string> < db/guest_comments_schema.sql", language="bash")
     st.stop()
 
@@ -41,7 +41,7 @@ st.sidebar.header("🔍 Filters")
 # Get available date range
 date_range = pd.read_sql("""
     SELECT MIN(report_date) as min_date, MAX(report_date) as max_date 
-    FROM guest_comments
+    FROM medallia_reports
 """, conn)
 
 if date_range.empty or pd.isna(date_range['min_date'].iloc[0]):
@@ -76,12 +76,12 @@ else:
 
 # Get available stores
 stores_df = pd.read_sql("""
-    SELECT DISTINCT restaurant_pc, restaurant_address 
-    FROM guest_comments 
-    ORDER BY restaurant_pc
+    SELECT DISTINCT pc_number, restaurant_address 
+    FROM medallia_reports 
+    ORDER BY pc_number
 """, conn)
 
-store_options = [f"{row['restaurant_pc']} - {row['restaurant_address']}" 
+store_options = [f"{row['pc_number']} - {row['restaurant_address']}" 
                  for _, row in stores_df.iterrows()]
 
 selected_stores = st.sidebar.multiselect(
@@ -126,9 +126,9 @@ channel_placeholders = ','.join(['%s'] * len(channel_filter))
 
 query = f"""
     SELECT *
-    FROM guest_comments
+    FROM medallia_reports
     WHERE report_date BETWEEN %s AND %s
-    AND restaurant_pc IN ({placeholders})
+    AND pc_number IN ({placeholders})
     AND osat >= %s
     AND ltr >= %s
     AND accuracy IN ({accuracy_placeholders})
@@ -239,7 +239,7 @@ fig_timeline.update_layout(
 st.plotly_chart(fig_timeline, use_container_width=True)
 
 # Store comparison
-store_scores = df.groupby('restaurant_pc').agg({
+store_scores = df.groupby('pc_number').agg({
     'osat': 'mean',
     'ltr': 'mean',
     'id': 'count'
@@ -291,7 +291,7 @@ for idx, row in display_df.head(50).iterrows():
         col1, col2, col3 = st.columns([2, 1, 1])
         
         with col1:
-            st.markdown(f"**Store {row['restaurant_pc']}** - {row['restaurant_address']}")
+            st.markdown(f"**Store {row['pc_number']}** - {row['restaurant_address']}")
         with col2:
             st.markdown(f"📅 {row['report_date']}")
         with col3:

@@ -13,9 +13,9 @@ This document describes the complete implementation of the Medallia Guest Commen
 
 ### 1. Database Schema
 **File:** `db/guest_comments_schema.sql`
-- Creates `guest_comments` table with all necessary columns
-- Unique constraint: `(restaurant_pc, response_datetime, comment)` to prevent duplicates
-- Indexes for performance: report_date, restaurant_pc, response_datetime, osat, ltr
+- Creates `medallia_reports` table with all necessary columns
+- Unique constraint: `(pc_number, response_datetime, comment)` to prevent duplicates
+- Indexes for performance: report_date, pc_number, response_datetime, osat, ltr
 - Supports OSAT (1-5) and LTR (0-10) scoring with CHECK constraints
 
 ### 2. Email Download Script
@@ -91,10 +91,10 @@ This document describes the complete implementation of the Medallia Guest Commen
 ## 🏗️ Database Schema
 
 ```sql
-CREATE TABLE guest_comments (
+CREATE TABLE medallia_reports (
     id SERIAL PRIMARY KEY,
     report_date DATE NOT NULL,
-    restaurant_pc VARCHAR(10) NOT NULL,
+  pc_number VARCHAR(10) NOT NULL,
     restaurant_address TEXT,
     order_channel VARCHAR(20),
     transaction_datetime TIMESTAMP,
@@ -105,16 +105,16 @@ CREATE TABLE guest_comments (
     comment TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
     
-    CONSTRAINT unique_guest_comment UNIQUE (restaurant_pc, response_datetime, comment)
+    CONSTRAINT unique_guest_comment UNIQUE (pc_number, response_datetime, comment)
 );
 ```
 
 **Indexes:**
-- `idx_guest_comments_report_date`
-- `idx_guest_comments_restaurant_pc`
-- `idx_guest_comments_response_datetime`
-- `idx_guest_comments_osat`
-- `idx_guest_comments_ltr`
+- `idx_medallia_reports_report_date`
+- `idx_medallia_reports_pc_number`
+- `idx_medallia_reports_response_datetime`
+- `idx_medallia_reports_osat`
+- `idx_medallia_reports_ltr`
 
 ---
 
@@ -213,7 +213,7 @@ python scripts/test_supabase_connection.py
 python scripts/setup_guest_comments_db.py
 ```
 
-This creates the `guest_comments` table with all necessary indexes.
+This creates the `medallia_reports` table with all necessary indexes.
 
 ### Step 7: Download & Process First Data
 ```bash
@@ -373,8 +373,8 @@ Each review shows:
 **Symptoms:** Duplicate reviews appearing
 
 **Solutions:**
-1. Verify unique constraint exists: `\d guest_comments` in psql
-2. Check constraint columns match: (restaurant_pc, response_datetime, comment)
+1. Verify unique constraint exists: `\d medallia_reports` in psql
+2. Check constraint columns match: (pc_number, response_datetime, comment)
 3. Re-create table with setup script
 
 ### Issue: Streamlit Page Not Showing
@@ -443,7 +443,7 @@ data/raw_emails/medallia/
     ↓ (process_medallia_data.py)
 Parsing & Validation
     ↓ (psycopg2)
-Supabase - guest_comments table
+Supabase - medallia_reports table
     ↓ (SQL queries)
 Streamlit Dashboard (9_Guest_Reviews.py)
     ↓

@@ -79,8 +79,8 @@ pause
 [2] Process & Upload
     ├─ Script: process_medallia_data.py
     ├─ Parse: HTML → structured data (store, OSAT, LTR, comments)
-    ├─ Upload: guest_comments table in Supabase
-    ├─ Duplicate handling: Skip based on (store, response_datetime, comment)
+    ├─ Upload: medallia_reports table in Supabase
+    ├─ Duplicate handling: Skip based on (pc_number, response_datetime, comment)
     └─ Statistics: Count inserted/duplicates
 
 [3] Notification

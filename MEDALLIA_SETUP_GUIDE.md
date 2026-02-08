@@ -7,8 +7,8 @@ This feature allows you to track and analyze customer feedback from Medallia "Da
 
 ### 1. Database Schema
 **File:** `db/guest_comments_schema.sql`
-- Creates `guest_comments` table with all necessary fields
-- Includes unique constraint to prevent duplicates: `(restaurant_pc, response_datetime, comment)`
+- Creates `medallia_reports` table with all necessary fields
+- Includes unique constraint to prevent duplicates: `(pc_number, response_datetime, comment)`
 - Indexes for performance on common queries
 
 ### 2. Email Download Script
@@ -121,10 +121,10 @@ python scripts/run_medallia_pipeline.py
 ## Data Structure
 
 ```
-guest_comments table:
+medallia_reports table:
 ├── id (primary key)
 ├── report_date (date of Medallia report)
-├── restaurant_pc (store number)
+├── pc_number (store number)
 ├── restaurant_address
 ├── order_channel (In-store/Other)
 ├── transaction_datetime
@@ -139,12 +139,12 @@ guest_comments table:
 ## Troubleshooting
 
 **No data showing:**
-1. Check if table exists: `SELECT COUNT(*) FROM guest_comments;`
+1. Check if table exists: `SELECT COUNT(*) FROM medallia_reports;`
 2. Verify emails downloaded: `ls data/raw_emails/medallia/`
 3. Check processing logs for errors
 
 **Duplicates:**
-- System automatically skips duplicates based on `(restaurant_pc, response_datetime, comment)`
+- System automatically skips duplicates based on `(pc_number, response_datetime, comment)`
 
 **Email parsing errors:**
 - Check email format matches expected structure

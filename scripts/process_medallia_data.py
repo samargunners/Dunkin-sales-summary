@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Process Medallia guest comments emails and upload to Supabase
-Parses downloaded email files and inserts into guest_comments table
+Parses downloaded email files and inserts into medallia_reports table
 """
 
 import re
@@ -91,7 +91,7 @@ def parse_medallia_email_html(html_text, report_date):
             
             records.append({
                 "report_date": report_date,
-                "restaurant_pc": pc_number,
+                "pc_number": pc_number,
                 "restaurant_address": address,
                 "order_channel": order_channel,
                 "transaction_datetime": transaction_dt,
@@ -186,7 +186,7 @@ def parse_medallia_email(email_text, report_date):
 
             records.append({
                 "report_date": report_date,
-                "restaurant_pc": pc_number,
+                "pc_number": pc_number,
                 "restaurant_address": address,
                 "order_channel": order_channel,
                 "transaction_datetime": transaction_dt,
@@ -208,7 +208,7 @@ def parse_medallia_email(email_text, report_date):
 
 def insert_records(conn, records):
     """
-    Insert records into guest_comments table
+    Insert records into medallia_reports table
     Uses ON CONFLICT to handle duplicates
     
     Args:
@@ -225,11 +225,11 @@ def insert_records(conn, records):
     
     # Prepare data for batch insert
     insert_query = """
-        INSERT INTO guest_comments (
-            report_date, restaurant_pc, restaurant_address, order_channel,
+        INSERT INTO medallia_reports (
+            report_date, pc_number, restaurant_address, order_channel,
             transaction_datetime, response_datetime, osat, ltr, accuracy, comment
         ) VALUES %s
-        ON CONFLICT (restaurant_pc, response_datetime, comment) 
+        ON CONFLICT (pc_number, response_datetime, comment) 
         DO NOTHING
         RETURNING id
     """
@@ -237,7 +237,7 @@ def insert_records(conn, records):
     values = [
         (
             r["report_date"],
-            r["restaurant_pc"],
+            r["pc_number"],
             r["restaurant_address"],
             r["order_channel"],
             r["transaction_datetime"],
