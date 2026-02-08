@@ -12,7 +12,7 @@ import smtplib
 import ssl
 import traceback
 from email.message import EmailMessage
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 import os
@@ -110,25 +110,33 @@ def parse_summary_from_output(output):
 def main():
     try:
         import argparse
-        
+
         parser = argparse.ArgumentParser(description="Run complete Medallia pipeline")
         parser.add_argument(
-            "--days",
-            type=int,
-            default=7,
-            help="Number of days to look back for emails (default: 7)"
+            "--date",
+            type=str,
+            default=None,
+            help="Specific report date to download (YYYY-MM-DD). Defaults to yesterday."
         )
-        
+
         args = parser.parse_args()
-        
+
+        # Calculate yesterday's date if not specified
+        if args.date:
+            report_date = args.date
+        else:
+            yesterday = datetime.now() - timedelta(days=1)
+            report_date = yesterday.strftime("%Y-%m-%d")
+
         logging.info("="*80)
         logging.info("MEDALLIA GUEST COMMENTS PIPELINE")
         logging.info("="*80)
-        
+        logging.info(f"Report date: {report_date}")
+
         # Step 1: Download emails from Gmail
         logging.info("\n[1/2] Downloading Medallia emails from Gmail...")
         download_script = BASE_DIR / "scripts" / "download_medallia_emails.py"
-        run(download_script, [f"--days={args.days}"])
+        run(download_script, [f"--date={report_date}"])
         
         # Step 2: Process and upload to Supabase
         logging.info("\n[2/2] Processing data and uploading to Supabase...")

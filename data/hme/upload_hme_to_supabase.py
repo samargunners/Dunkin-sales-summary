@@ -7,7 +7,6 @@ import sys
 import os
 import re
 import pandas as pd
-import toml
 
 # Paths
 THIS_FILE = Path(__file__).resolve()
@@ -42,16 +41,28 @@ values (
 """
 
 def find_latest_transformed() -> Path | None:
-    # Prefer bulk file if it exists
-    bulk = DATA_DIR / "transformed" / "hme_transformed_bulk.xlsx"
-    if bulk.exists():
-        return bulk
-    # Only consider XLSX files
-    candidates = list((DATA_DIR / "transformed").glob("hme_transformed.xlsx"))
-    if not candidates:
-        candidates += sorted((DATA_DIR / "transformed").glob("hme_transformed_*.xlsx"), reverse=True)
+    """Find the transformed file to upload.
+
+    Prefers the daily file (hme_transformed.xlsx) for automation.
+    Falls back to bulk file or most recent dated file if daily file doesn't exist.
+    """
+    transformed_dir = DATA_DIR / "transformed"
+
+    # Prefer daily file for automation (updated by daily pipeline)
+    daily_file = transformed_dir / "hme_transformed.xlsx"
+    if daily_file.exists():
+        return daily_file
+
+    # Fallback: try bulk file
+    bulk_file = transformed_dir / "hme_transformed_bulk.xlsx"
+    if bulk_file.exists():
+        return bulk_file
+
+    # Last resort: find any dated transformed file
+    candidates = list(transformed_dir.glob("hme_transformed_*.xlsx"))
     if not candidates:
         return None
+
     return max(candidates, key=lambda p: p.stat().st_mtime)
 
 def pc_number_from_store(store_text: str) -> int | None:
@@ -96,12 +107,21 @@ def load_for_upload(path: Path) -> pd.DataFrame:
     out = out.astype(object).where(pd.notnull(out), None)
     return out[TARGET_COLS]
 
+def check_existing_data(cursor, date_val, store_val, time_measure_val) -> bool:
+    """Check if this specific record already exists"""
+    cursor.execute("""
+        SELECT COUNT(*) FROM hme_report
+        WHERE date = %s AND store = %s AND time_measure = %s
+    """, (date_val, store_val, time_measure_val))
+    count = cursor.fetchone()[0]
+    return count > 0
+
 def main():
     src = find_latest_transformed()
     if not src:
         print("[ERR] Could not find a transformed XLSX file in: transformed/")
         print("      Expected hme_transformed.xlsx or hme_transformed_*.xlsx")
-        return
+        sys.exit(1)
 
     print(f"[INFO] Loading: {src.name}")
     df = load_for_upload(src)
@@ -110,21 +130,54 @@ def main():
         conn = supabase_db.get_supabase_connection()
     except Exception as e:
         print(f"[ERR] Supabase connection error: {e}")
-        return
+        sys.exit(1)
 
     total = len(df)
-    print(f"[INFO] Inserting {total} rows to public.hme_report")
+    print(f"[INFO] Processing {total} rows for upload to public.hme_report")
 
-    with conn:
+    # Check for duplicates BEFORE inserting
+    rows = df.to_dict(orient="records")
+    rows_to_insert = []
+    duplicates_found = 0
+
+    try:
         with conn.cursor() as cur:
-            # batch insert
-            batch_size = 1000
-            rows = df.to_dict(orient="records")
-            for i in range(0, total, batch_size):
-                cur.executemany(INSERT_SQL, rows[i:i+batch_size])
+            print("[INFO] Checking for existing records...")
+            for row in rows:
+                if not check_existing_data(cur, row['date'], row['store'], row['time_measure']):
+                    rows_to_insert.append(row)
+                else:
+                    duplicates_found += 1
 
-    print("[OK] Upload complete.")
+        if duplicates_found > 0:
+            print(f"[WARN] Found {duplicates_found} duplicate records (will skip)")
+
+        if not rows_to_insert:
+            print("[INFO] No new records to insert (all data already exists)")
+            return
+
+        print(f"[INFO] Inserting {len(rows_to_insert)} new rows to public.hme_report")
+
+        with conn:
+            with conn.cursor() as cur:
+                # batch insert
+                batch_size = 1000
+                for i in range(0, len(rows_to_insert), batch_size):
+                    batch = rows_to_insert[i:i+batch_size]
+                    try:
+                        cur.executemany(INSERT_SQL, batch)
+                        print(f"[INFO] Inserted batch {i//batch_size + 1} ({len(batch)} rows)")
+                    except Exception as e:
+                        print(f"[ERR] Failed to insert batch {i//batch_size + 1}: {e}")
+                        raise
+
+        print(f"[OK] Upload complete. Inserted {len(rows_to_insert)} new rows, skipped {duplicates_found} duplicates.")
+
+    except Exception as e:
+        print(f"[ERR] Upload failed: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 if __name__ == "__main__":
-    print(toml.load("C:/Projects/Dunkin-sales-summary/.streamlit/secrets.toml"))
     main()

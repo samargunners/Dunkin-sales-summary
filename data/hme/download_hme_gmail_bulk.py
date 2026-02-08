@@ -14,8 +14,8 @@ EMAIL = os.getenv("EMAIL_USER")
 PASSWORD = os.getenv("EMAIL_PASS")
 
 SAVE_DIR = r"C:\Projects\Dunkin-sales-summary\data\hme\raw"
-START_DATE = "2026-01-01"  # YYYY-MM-DD (day after last date in DB)
-END_DATE = datetime.now().strftime("%Y-%m-%d")
+START_DATE = "2026-02-05"  # YYYY-MM-DD (missing dates: Feb 5, 6)
+END_DATE = "2026-02-07"  # Up to Feb 6 data (emails arrive day after)
 
 
 def download_hme_reports_bulk():

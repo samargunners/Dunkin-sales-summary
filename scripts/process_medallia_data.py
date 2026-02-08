@@ -208,7 +208,7 @@ def parse_medallia_email(email_text, report_date):
 
 def insert_records(conn, records):
     """
-    Insert records into medallia_reports table
+    Insert records into medallia_report table
     Uses ON CONFLICT to handle duplicates
     
     Args:
@@ -225,11 +225,11 @@ def insert_records(conn, records):
     
     # Prepare data for batch insert
     insert_query = """
-        INSERT INTO medallia_reports (
+        INSERT INTO medallia_report (
             report_date, pc_number, restaurant_address, order_channel,
             transaction_datetime, response_datetime, osat, ltr, accuracy, comment
         ) VALUES %s
-        ON CONFLICT (pc_number, response_datetime, comment) 
+        ON CONFLICT (pc_number, response_datetime, comment)
         DO NOTHING
         RETURNING id
     """
