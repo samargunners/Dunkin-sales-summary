@@ -13,6 +13,8 @@ __pycache__/
 # Ignore compiled Excel output
 data/raw_emails/
 data/compiled/
+*.xlsx
+*.xls
 
 # Ignore database files if needed
 db/*.db
