@@ -1,6 +1,7 @@
 pandas
 openpyxl
 streamlit
+altair<5
 matplotlib
 seaborn
 google-auth
